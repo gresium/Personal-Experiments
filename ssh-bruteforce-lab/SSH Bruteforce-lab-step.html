@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+		"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>SSH Bruteforce-lab-step.txt</title>
+</head>
+<body style="color: rgb(20, 20, 20); background-color: rgb(247, 247, 247)">
+<pre><code>
+<span style="color: rgb(20, 20, 20);">Download&nbsp;the&nbsp;file&nbsp;from&nbsp;the&nbsp;link&nbsp;or&nbsp;see&nbsp;in&nbsp;the&nbsp;file&nbsp;shared&nbsp;with&nbsp;you&nbsp;Open&nbsp;the&nbsp;Kali&nbsp;Linux&nbsp;terminal&nbsp;present&nbsp;on&nbsp;your&nbsp;desktop&nbsp;and&nbsp;run&nbsp;the&nbsp;following&nbsp;command&nbsp;to&nbsp;navigate&nbsp;to&nbsp;the&nbsp;downloads&nbsp;directory&nbsp;where&nbsp;the&nbsp;log&nbsp;files&nbsp;are&nbsp;located
+
+cd&nbsp;Downloads
+
+1.&nbsp;Extract&nbsp;and&nbsp;filter&nbsp;usernames&nbsp;from&nbsp;logs
+&rarr;&nbsp;Run&nbsp;the&nbsp;following&nbsp;command&nbsp;to&nbsp;extract&nbsp;usernames&nbsp;from&nbsp;SSH&nbsp;failed&nbsp;login&nbsp;attempts&nbsp;and&nbsp;save&nbsp;them&nbsp;to&nbsp;usernames.log
+
+grep&nbsp;"Failed&nbsp;password&nbsp;for"&nbsp;secure*&nbsp;|&nbsp;grep&nbsp;-v&nbsp;"invalid&nbsp;user"&nbsp;|&nbsp;awk&nbsp;'{print&nbsp;$9}'&nbsp;&gt;&gt;&nbsp;usernames.log
+
+&rarr;&nbsp;To&nbsp;display&nbsp;the&nbsp;extracted&nbsp;usernames&nbsp;and&nbsp;verify&nbsp;the&nbsp;results,&nbsp;run&nbsp;the&nbsp;following&nbsp;command
+
+cat&nbsp;usernames.log
+
+2.&nbsp;Run&nbsp;the&nbsp;following&nbsp;command&nbsp;to&nbsp;sort&nbsp;and&nbsp;filter&nbsp;invalid&nbsp;usernames&nbsp;from&nbsp;the&nbsp;logs&nbsp;and&nbsp;save&nbsp;them&nbsp;to&nbsp;abc.txt
+
+cat&nbsp;secure*&nbsp;|&nbsp;grep&nbsp;ssh&nbsp;|&nbsp;grep&nbsp;user&nbsp;|&nbsp;grep&nbsp;Invalid&nbsp;|&nbsp;cut&nbsp;-d&nbsp;"&nbsp;"&nbsp;-f&nbsp;8&nbsp;|&nbsp;sort&nbsp;-u&nbsp;&gt;&gt;&nbsp;abc.txt
+
+3.&nbsp;Compare&nbsp;usernames&nbsp;with&nbsp;existing&nbsp;system&nbsp;users
+&rarr;&nbsp;Run&nbsp;the&nbsp;following&nbsp;command&nbsp;to&nbsp;create&nbsp;a&nbsp;script&nbsp;named&nbsp;testtheusers_1.sh&nbsp;to&nbsp;check&nbsp;if&nbsp;extracted&nbsp;usernames&nbsp;exist&nbsp;in&nbsp;the&nbsp;/etc/&nbsp;passwd
+
+nano&nbsp;testtheusers_1.sh
+
+&rarr;&nbsp;Add&nbsp;the&nbsp;following&nbsp;script&nbsp;in&nbsp;the&nbsp;testtheusers_1.sh&nbsp;file
+
+#!/bin/bash
+while&nbsp;IFS=&nbsp;read&nbsp;-r&nbsp;username;&nbsp;do
+if&nbsp;grep&nbsp;-q&nbsp;"^$username:"&nbsp;/etc/passwd;
+then&nbsp;echo&nbsp;"$username&nbsp;exists&nbsp;in&nbsp;/etc/passwd"
+fi&nbsp;done&nbsp;&lt;abc.txt
+
+
+Note:&nbsp;The&nbsp;script&nbsp;checks&nbsp;each&nbsp;username&nbsp;from&nbsp;abc.txt&nbsp;to&nbsp;see&nbsp;if&nbsp;it&nbsp;exists&nbsp;in&nbsp;the&nbsp;system's&nbsp;/etc/passwd&nbsp;file&nbsp;and&nbsp;prints&nbsp;a&nbsp;message&nbsp;if&nbsp;it&nbsp;does.
+&rarr;&nbsp;Make&nbsp;the&nbsp;script&nbsp;executable&nbsp;by&nbsp;running&nbsp;the&nbsp;following&nbsp;command
+
+chmod&nbsp;+x&nbsp;testtheusers_1.sh
+
+&rarr;&nbsp;Run&nbsp;the&nbsp;following&nbsp;command&nbsp;to&nbsp;check&nbsp;the&nbsp;existence&nbsp;of&nbsp;usernames&nbsp;in&nbsp;the&nbsp;system
+
+./testtheusers_1.sh</span></code></pre></body>
+</html>

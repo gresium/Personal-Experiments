@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+data/
+results/
+test_run/
+*-config.json
+*-portfolio.json

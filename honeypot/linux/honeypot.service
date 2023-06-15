@@ -1,0 +1,44 @@
+# systemd unit for the honeypot (Linux).
+# Installed to /etc/systemd/system/honeypot.service by linux/install.sh.
+# Runs as an unprivileged, locked-down service account.
+
+[Unit]
+Description=Low-interaction honeypot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/honeypot/honeypot.py -c /etc/honeypot/config.json
+Restart=on-failure
+RestartSec=5
+
+# Run as a dedicated account with no login and no privileges.
+User=honeypot
+Group=honeypot
+
+# --- Hardening: the honeypot is internet-facing, so lock it down hard. ---
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+# The only paths the service may write to are its log and state directories.
+ReadWritePaths=/var/log/honeypot /var/lib/honeypot
+# Cap resources so a flood of connections can't exhaust the host.
+LimitNOFILE=4096
+TasksMax=256
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

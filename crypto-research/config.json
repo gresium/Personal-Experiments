@@ -1,0 +1,17 @@
+{
+  "coins": ["BTC", "ETH", "BNB", "SOL", "XRP", "ADA", "AVAX", "LINK", "LTC", "XLM"],
+  "start": "2020-01-01",
+  "end": "2026-11-05",
+  "train_min": 365,
+  "test_days": 365,
+  "refit_days": 30,
+  "ridge_alpha": 10.0,
+  "portfolio_seed": 42,
+  "portfolio_budget_usd": 10000,
+  "scenario_seed": 2026,
+  "scenario_paths": 200,
+  "scenario_days": 365,
+  "scenario_block_days": 14,
+  "long_term_end": "2030-12-31",
+  "m2_exploratory_delay_days": 60
+}
