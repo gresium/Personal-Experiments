@@ -34,6 +34,7 @@ install -m 0755 "$SRC_DIR/honeypot.py" "$APP_DIR/honeypot.py"
 install -m 0755 "$SRC_DIR/honeytokens.py" "$APP_DIR/honeytokens.py"
 install -m 0644 "$SRC_DIR/tokens.py" "$APP_DIR/tokens.py"
 install -m 0644 "$SRC_DIR/alerts.py" "$APP_DIR/alerts.py"
+install -m 0644 "$SRC_DIR/protocols.py" "$APP_DIR/protocols.py"
 
 echo "==> Installing config to $CFG_DIR"
 install -d -m 0755 "$CFG_DIR"

@@ -55,7 +55,12 @@ $TaskName = 'Honeypot'
 
 Write-Host "==> Installing application to $AppDir"
 New-Item -ItemType Directory -Force -Path $AppDir, $LogDir, $StateDir, $DecoyDir | Out-Null
-foreach ($f in 'honeypot.py', 'honeytokens.py', 'tokens.py', 'alerts.py') {
+# ProgramData lets ordinary users read files and add new ones to subfolders. Logs
+# hold captured credentials, and a planted module would run as the service account.
+# Well-known SIDs: SYSTEM, Administrators, LOCAL SERVICE.
+& icacls.exe $AppDir /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-19:(OI)(CI)RX' | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Could not restrict permissions on $AppDir" }
+foreach ($f in 'honeypot.py', 'honeytokens.py', 'tokens.py', 'alerts.py', 'protocols.py') {
     Copy-Item (Join-Path $SrcDir $f) (Join-Path $AppDir $f) -Force
 }
 
@@ -78,7 +83,8 @@ $action    = New-ScheduledTaskAction -Execute $python -Argument """$Script"" -c 
 $trigger   = New-ScheduledTaskTrigger -AtStartup
 $principal = New-ScheduledTaskPrincipal -UserId 'LOCAL SERVICE' -LogonType ServiceAccount -RunLevel Limited
 $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-                -StartWhenAvailable -RestartInterval (New-TimeSpan -Minutes 1) -RestartCount 3
+                -StartWhenAvailable -RestartInterval (New-TimeSpan -Minutes 1) -RestartCount 3 `
+                -ExecutionTimeLimit ([TimeSpan]::Zero)
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
     -Principal $principal -Settings $settings -Force | Out-Null

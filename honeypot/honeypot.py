@@ -29,15 +29,20 @@ import json
 import logging
 import os
 import platform
+import re
 import signal
 import socket
 import socketserver
 import sys
 import threading
+import time
 from datetime import datetime, timezone
+from email.utils import formatdate
 from logging.handlers import RotatingFileHandler
+from urllib.parse import unquote
 
 import alerts
+import protocols
 from tokens import TokenStore
 
 # --------------------------------------------------------------------------- #
@@ -57,6 +62,7 @@ DEFAULT_CONFIG = {
     "webhook_min_interval": 5,
     "max_connections": 200,
     "conn_timeout": 20,
+    "conn_lifetime": 120,           # hard limit, so slow-drip clients can't hold a slot
     "max_line_bytes": 4096,
     "max_conn_bytes": 16384,
     "drop_privileges_to": None,
@@ -79,6 +85,10 @@ PIXEL_GIF = base64.b64decode(
 
 log = logging.getLogger("honeypot")
 STORE: TokenStore | None = None
+
+_EOL = re.compile(rb"[\r\n]")
+# Telnet option negotiation that clients mix into the login stream.
+_TELNET_IAC = re.compile(rb"\xff(?:[\xfb-\xfe].|\xfa.*?\xff\xf0|[\xf0-\xf9])", re.DOTALL)
 
 
 def now_iso() -> str:
@@ -122,10 +132,11 @@ def printable(text: str, limit: int = 200) -> str:
 
 
 def record(service: str, event: str, client, **fields) -> None:
-    ip, port = client
+    ip, port = client[:2]   # IPv6 addresses are 4-tuples
     entry = {"ts": now_iso(), "service": service, "event": event,
              "src_ip": ip, "src_port": port, **fields}
-    log.info(json.dumps(entry, ensure_ascii=False, default=str))
+    # ensure_ascii also escapes C1 control characters that can drive a terminal.
+    log.info(json.dumps(entry, ensure_ascii=True, default=str))
     summary = f"[{service}] {event} from {ip}:{port}"
     if "username" in fields or "password" in fields:
         summary += f"  user={printable(str(fields.get('username','')))!r}" \
@@ -157,12 +168,18 @@ class HoneypotHandler(socketserver.BaseRequestHandler):
         try:
             self.request.settimeout(self.limits["conn_timeout"])
             self._bytes_left = self.limits["max_conn_bytes"]
+            self._deadline = time.monotonic() + self.limits["conn_lifetime"]
+            self._buf = bytearray()
+            self._skip_lf = False
+            self.eof = False
             record(name, "connect", self.client_address)
             mode = self.service.get("mode", "banner")
             if mode == "login":
                 self._do_login(self.service)
             elif mode == "http":
                 self._do_http(self.service)
+            elif mode in protocols.HANDLERS:
+                protocols.HANDLERS[mode](self, self.service)
             else:
                 self._do_banner(self.service)
         except (socket.timeout, OSError):
@@ -175,8 +192,20 @@ class HoneypotHandler(socketserver.BaseRequestHandler):
 
     # -- honeytoken alerting ---------------------------------------------- #
 
+    def event(self, event: str, **fields) -> None:
+        record(self.service.get("name", "service"), event, self.client_address, **fields)
+
+    def login(self, user: str, password: str, **extra) -> dict | None:
+        """Record a login attempt and alert if it used a honeytoken."""
+        token = STORE.find_credential(user, password) if STORE else None
+        self.event("login_attempt", username=user, password=password,
+                   honeytoken=token["id"] if token else None, **extra)
+        if token:
+            self._fire(token, "credential", username=user, password=password)
+        return token
+
     def _fire(self, token: dict, token_kind: str, **extra) -> None:
-        ip, port = self.client_address
+        ip, port = self.client_address[:2]
         alerts.dispatch({
             "severity": "critical",
             "kind": "honeytoken_triggered",
@@ -193,35 +222,42 @@ class HoneypotHandler(socketserver.BaseRequestHandler):
     # -- modes ------------------------------------------------------------- #
 
     def _do_banner(self, svc: dict) -> None:
-        self._send(svc.get("banner", ""))
-        line = self._recv_line()
+        self.send(svc.get("banner", ""))
+        line = self.recv_line()
         if line:
-            record(svc["name"], "data", self.client_address, data=line)
+            self.event("data", data=line)
+
+    def _login_line(self) -> str:
+        return _TELNET_IAC.sub(b"", self._recv_line_bytes()).decode("utf-8", "replace")
 
     def _do_login(self, svc: dict) -> None:
-        if svc.get("banner"):
-            b = svc["banner"]
-            self._send(b if b.endswith(("\r\n", "\n")) else b + "\r\n")
+        banner = svc.get("banner", "")
+        if banner:
+            self.send(banner if banner.endswith(("\r\n", "\n")) else banner + "\r\n")
+        if banner.startswith("SSH-"):
+            # Real SSH clients announce themselves straight away, and would choke
+            # on a text prompt. Anything else falls through to the line login.
+            self._fill(timeout=float(svc.get("ssh_hello_wait", 1.0)))
+            if self._buf.startswith(b"SSH-"):
+                protocols.ssh_client(self, svc, self.recv_line())
+                return
         for _ in range(max(1, int(svc.get("login_rounds", 3)))):
-            self._send(svc.get("user_prompt", "login: "))
-            user = self._recv_line()
-            self._send(svc.get("pass_prompt", "Password: "))
-            pw = self._recv_line()
-            token = STORE.find_credential(user, pw) if STORE else None
-            record(svc["name"], "login_attempt", self.client_address,
-                   username=user, password=pw,
-                   honeytoken=token["id"] if token else None)
-            if token:
-                self._fire(token, "credential", username=user, password=pw)
-            self._send(svc.get("deny", "\r\nAccess denied\r\n"))
-            if user == "" and pw == "":
+            self.send(svc.get("user_prompt", "login: "))
+            user = self._login_line()
+            if not user and self.eof:
+                break       # a bare connect is not a login attempt
+            self.send(svc.get("pass_prompt", "Password: "))
+            pw = self._login_line()
+            self.login(user, pw)
+            self.send(svc.get("deny", "\r\nAccess denied\r\n"))
+            if self.eof or (user == "" and pw == ""):
                 break
 
     def _do_http(self, svc: dict) -> None:
         raw = self._recv_until_blank_line()
         if not raw:
             return
-        lines = raw.split("\r\n")
+        lines = re.split(r"\r?\n", re.split(r"\r?\n\r?\n", raw, maxsplit=1)[0])
         request_line = lines[0] if lines else ""
         parts = request_line.split()
         path = parts[1] if len(parts) >= 2 else ""
@@ -231,44 +267,42 @@ class HoneypotHandler(socketserver.BaseRequestHandler):
                 k, _, v = h.partition(":")
                 headers[k.strip().lower()] = v.strip()
 
-        web_token = STORE.find_web(path) if STORE else None
+        web_token = None
+        if STORE:
+            web_token = STORE.find_web(path) or STORE.find_web(unquote(path))
 
         # Basic-auth credentials can also be honeytokens.
         cred_token = None
+        creds = {}
         auth = headers.get("authorization", "")
-        if auth.lower().startswith("basic ") and STORE:
+        if auth.lower().startswith("basic "):
             try:
                 decoded = base64.b64decode(auth.split(" ", 1)[1]).decode("utf-8", "replace")
                 u, _, p = decoded.partition(":")
-                cred_token = STORE.find_credential(u, p)
+                creds = {"username": u, "password": p}
+                cred_token = STORE.find_credential(u, p) if STORE else None
             except Exception:
                 pass
 
         token = web_token or cred_token
-        record(svc["name"], "http_request", self.client_address,
-               request_line=request_line, path=path,
-               user_agent=headers.get("user-agent", ""),
-               host=headers.get("host", ""),
-               authorization=auth,
-               honeytoken=token["id"] if token else None)
+        self.event("http_request",
+                   request_line=request_line, path=path,
+                   user_agent=headers.get("user-agent", ""),
+                   host=headers.get("host", ""),
+                   authorization=auth, **creds,
+                   honeytoken=token["id"] if token else None)
 
         if web_token:
             self._fire(web_token, "web_url", path=path,
                        user_agent=headers.get("user-agent", ""))
-            self._serve_token(web_token)
+            self._serve_token(web_token, svc)
             return
         if cred_token:
-            self._fire(cred_token, "http_basic_auth")
+            self._fire(cred_token, "http_basic_auth", **creds)
 
-        body = "<!doctype html><title>401</title><h1>401 Unauthorized</h1>"
-        self._send(
-            "HTTP/1.1 401 Unauthorized\r\n"
-            'WWW-Authenticate: Basic realm="Restricted"\r\n'
-            "Server: Apache/2.4.52 (Ubuntu)\r\n"
-            "Content-Type: text/html; charset=utf-8\r\n"
-            f"Content-Length: {len(body)}\r\nConnection: close\r\n\r\n" + body)
+        self.send(protocols.http_401(svc, path, headers.get("host", "localhost")))
 
-    def _serve_token(self, token: dict) -> None:
+    def _serve_token(self, token: dict, svc: dict) -> None:
         """Return believable content for a canary URL so the hit looks successful."""
         data = PIXEL_GIF
         ctype = "image/gif"
@@ -282,7 +316,8 @@ class HoneypotHandler(socketserver.BaseRequestHandler):
                 pass
         header = (
             "HTTP/1.1 200 OK\r\n"
-            "Server: Apache/2.4.52 (Ubuntu)\r\n"
+            f"Date: {formatdate(usegmt=True)}\r\n"
+            f"Server: {svc.get('server', 'Apache/2.4.52 (Ubuntu)')}\r\n"
             f"Content-Type: {ctype}\r\n"
             f"Content-Length: {len(data)}\r\nConnection: close\r\n\r\n"
         ).encode("utf-8")
@@ -293,37 +328,90 @@ class HoneypotHandler(socketserver.BaseRequestHandler):
 
     # -- bounded I/O ------------------------------------------------------- #
 
-    def _send(self, text: str) -> None:
+    def send(self, text: str) -> None:
+        self.send_bytes(text.encode("utf-8", "replace"))
+
+    def send_bytes(self, data: bytes) -> None:
         try:
-            self.request.sendall(text.encode("utf-8", "replace"))
+            self.request.sendall(data)
         except OSError:
             pass
 
-    def _recv_line(self) -> str:
-        cap = min(self.limits["max_line_bytes"], max(0, self._bytes_left))
-        data = bytearray()
-        while len(data) < cap:
-            chunk = self.request.recv(min(1024, cap - len(data)))
-            if not chunk:
+    def _fill(self, want: int = 1024, timeout: float | None = None) -> bool:
+        """Read more into the buffer. False once the connection is finished.
+
+        A timeout ends the connection but keeps what already arrived, so a
+        client that stalls part-way is still logged. Passing `timeout` makes a
+        short, non-final wait instead.
+        """
+        if self.eof:
+            return False
+        room = min(want, self._bytes_left)
+        left = self._deadline - time.monotonic()
+        if room <= 0 or left <= 0:
+            self.eof = True
+            return False
+        try:
+            self.request.settimeout(min(timeout or self.limits["conn_timeout"], left))
+            chunk = self.request.recv(room)
+        except socket.timeout:
+            if timeout is not None:
+                return False
+            chunk = b""
+        except OSError:
+            chunk = b""
+        if not chunk:
+            self.eof = True
+            return False
+        self._bytes_left -= len(chunk)
+        self._buf += chunk
+        return True
+
+    def _drop_line_end(self) -> None:
+        """Consume the second half of a CRLF or CR NUL that followed a line."""
+        if self._skip_lf and self._buf:
+            if self._buf[0] in (0, 10):
+                del self._buf[0]
+            self._skip_lf = False
+
+    def _recv_line_bytes(self) -> bytes:
+        cap = self.limits["max_line_bytes"]
+        while True:
+            self._drop_line_end()
+            found = _EOL.search(self._buf, 0, cap)
+            if found:
+                end = found.start()
+                line = bytes(self._buf[:end])
+                was_cr = self._buf[end] == 13
+                del self._buf[:end + 1]
+                self._skip_lf = was_cr
+                return line
+            if len(self._buf) >= cap or not self._fill():
+                line = bytes(self._buf[:cap])
+                del self._buf[:cap]
+                return line
+
+    def recv_line(self) -> str:
+        return self._recv_line_bytes().decode("utf-8", "replace")
+
+    def recv_exact(self, count: int) -> bytes:
+        """Up to `count` bytes; fewer only if the connection has ended."""
+        self._drop_line_end()
+        while len(self._buf) < count + self._skip_lf:
+            if not self._fill(count + self._skip_lf - len(self._buf)):
                 break
-            data += chunk
-            if b"\n" in chunk or b"\r" in chunk:
-                break
-        self._bytes_left -= len(data)
-        return data.decode("utf-8", "replace").strip("\r\n")
+            self._drop_line_end()
+        data = bytes(self._buf[:count])
+        del self._buf[:count]
+        return data
 
     def _recv_until_blank_line(self) -> str:
-        data = bytearray()
-        cap = min(self.limits["max_conn_bytes"], max(0, self._bytes_left))
-        while len(data) < cap:
-            chunk = self.request.recv(min(1024, cap - len(data)))
-            if not chunk:
+        while b"\r\n\r\n" not in self._buf and b"\n\n" not in self._buf:
+            if not self._fill():
                 break
-            data += chunk
-            if b"\r\n\r\n" in data or b"\n\n" in data:
-                break
-        self._bytes_left -= len(data)
-        return data.decode("utf-8", "replace")
+        data = self._buf.decode("utf-8", "replace")
+        self._buf.clear()
+        return data
 
 
 # --------------------------------------------------------------------------- #
@@ -331,14 +419,26 @@ class HoneypotHandler(socketserver.BaseRequestHandler):
 # --------------------------------------------------------------------------- #
 
 class ThreadingTCPServer(socketserver.ThreadingTCPServer):
-    allow_reuse_address = True
+    # On Windows SO_REUSEADDR lets a second process share a port that is in use.
+    allow_reuse_address = os.name != "nt"
     daemon_threads = True
+
+    def server_bind(self) -> None:
+        if os.name == "nt":
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
+class ThreadingTCPServer6(ThreadingTCPServer):
+    address_family = socket.AF_INET6
 
 
 def make_server(svc: dict, limits: dict) -> ThreadingTCPServer:
     handler = type(f"Handler_{svc['name']}", (HoneypotHandler,),
                    {"service": svc, "limits": limits})
-    return ThreadingTCPServer((svc.get("bind", "0.0.0.0"), int(svc["port"])), handler)
+    bind = svc.get("bind", "0.0.0.0")
+    cls = ThreadingTCPServer6 if ":" in bind else ThreadingTCPServer
+    return cls((bind, int(svc["port"])), handler)
 
 
 def load_config(path: str | None) -> dict:
@@ -397,24 +497,32 @@ def main(argv=None) -> int:
     parser.add_argument("-c", "--config", help="path to a JSON config file")
     args = parser.parse_args(argv)
 
-    cfg = load_config(args.config)
+    try:
+        cfg = load_config(args.config)
+    except (OSError, ValueError) as exc:
+        print(f"ERROR: cannot read config {args.config}: {exc}", file=sys.stderr)
+        return 1
+    if os.name == "posix":
+        os.umask(0o027)     # logs hold captured credentials; keep them off world-read
     log_path, alert_path = setup_logging(cfg)
 
     global _conn_slots, STORE
     _conn_slots = threading.Semaphore(int(cfg["max_connections"]))
     STORE = TokenStore(resolve_token_store(cfg))
-    limits = {k: cfg[k] for k in ("conn_timeout", "max_line_bytes", "max_conn_bytes")}
+    limits = {k: cfg[k] for k in ("conn_timeout", "conn_lifetime",
+                                  "max_line_bytes", "max_conn_bytes")}
 
     servers: list[ThreadingTCPServer] = []
+    started: list[str] = []
     for svc in cfg["services"]:
         try:
             server = make_server(svc, limits)
-        except OSError as exc:
-            print(f"ERROR: cannot bind {svc.get('name')} on "
-                  f"{svc.get('bind','0.0.0.0')}:{svc.get('port')}: {exc}", file=sys.stderr)
+        except (OSError, KeyError, ValueError, TypeError) as exc:
+            print(f"ERROR: cannot start {svc.get('name')} on "
+                  f"{svc.get('bind','0.0.0.0')}:{svc.get('port')}: {exc!r}", file=sys.stderr)
             continue
         servers.append(server)
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+        started.append(svc["name"])
         print(f"Listening: {svc['name']} on {svc.get('bind','0.0.0.0')}:{svc['port']} "
               f"(mode={svc.get('mode','banner')})", flush=True)
 
@@ -422,12 +530,14 @@ def main(argv=None) -> int:
         print("No services could be started. Check the ports and config.", file=sys.stderr)
         return 1
 
+    # Drop root before accepting anything from the network.
     maybe_drop_privileges(cfg)
+    for server in servers:
+        threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"Honeypot running.\n  activity : {log_path}\n  alerts   : {alert_path}\n"
           f"  tokens   : {STORE.path} ({len(STORE.all())} loaded)", flush=True)
     record("honeypot", "startup", ("-", 0),
-           services=[s.get("name") for s in cfg["services"]],
-           tokens_loaded=len(STORE.all()))
+           services=started, tokens_loaded=len(STORE.all()))
 
     stop = threading.Event()
     for sig in ("SIGINT", "SIGTERM"):

@@ -40,7 +40,6 @@ from __future__ import annotations
 import argparse
 import os
 import secrets
-import sys
 from datetime import datetime, timezone
 
 import honeypot  # reuse config loading + path resolution
@@ -120,7 +119,7 @@ def cmd_new_file(args) -> int:
     url = f"{base}/t/{tid}"
     decoy_dir = _decoy_dir(args)
     os.makedirs(decoy_dir, exist_ok=True)
-    filename = args.name or "credentials.txt"
+    filename = os.path.basename(args.name or "") or "credentials.txt"
     path = os.path.join(decoy_dir, filename)
 
     content = (
@@ -211,7 +210,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except (OSError, ValueError, RuntimeError) as exc:
+        print(f"ERROR: {exc}")
+        return 1
 
 
 if __name__ == "__main__":

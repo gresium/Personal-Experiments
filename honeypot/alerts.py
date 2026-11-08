@@ -30,6 +30,8 @@ _webhook_url: str | None = None
 _min_interval = 5
 _last_sent: dict[str, float] = {}
 _lock = threading.Lock()
+# Critical alerts aren't rate-limited, so cap how many POSTs can be in flight.
+_post_slots = threading.BoundedSemaphore(32)
 
 
 def setup(path: str, webhook_url: str | None, min_interval: int,
@@ -49,13 +51,16 @@ def dispatch(alert: dict) -> None:
     """Record an alert and, for high severity, push it to the webhook."""
     alert = {"ts": datetime.now(timezone.utc).isoformat(), **alert}
     severity = str(alert.get("severity", "info"))
-    _alert_log.info(json.dumps(alert, ensure_ascii=False, default=str))
+    _alert_log.info(json.dumps(alert, ensure_ascii=True, default=str))
 
     banner = "!!! " if severity == "critical" else ""
-    print(f"{banner}[ALERT:{severity}] {alert.get('kind','')} "
-          f"token={alert.get('token_id','-')} from "
-          f"{alert.get('src_ip','-')}:{alert.get('src_port','-')} "
-          f"({alert.get('label','')})", flush=True)
+    summary = (f"{banner}[ALERT:{severity}] {alert.get('kind','')} "
+               f"token={alert.get('token_id','-')} from "
+               f"{alert.get('src_ip','-')}:{alert.get('src_port','-')} "
+               f"({alert.get('label','')})")
+    print(summary, flush=True)
+    # Slack and Teams incoming webhooks reject a payload with no "text" field.
+    alert = {"text": summary, **alert}
 
     if not _webhook_url:
         return
@@ -65,7 +70,15 @@ def dispatch(alert: dict) -> None:
             if time.time() - _last_sent.get(kind, 0.0) < _min_interval:
                 return
             _last_sent[kind] = time.time()
+    if not _post_slots.acquire(blocking=False):
+        _note("webhook_dropped", "too many webhook posts in flight")
+        return
     threading.Thread(target=_post, args=(_webhook_url, alert), daemon=True).start()
+
+
+def _note(kind: str, detail: str) -> None:
+    _alert_log.info(json.dumps({"ts": datetime.now(timezone.utc).isoformat(),
+                                "severity": "warning", "kind": kind, "detail": detail}))
 
 
 def _post(url: str, alert: dict) -> None:
@@ -76,6 +89,9 @@ def _post(url: str, alert: dict) -> None:
             headers={"Content-Type": "application/json", "User-Agent": "honeypot"},
             method="POST")
         urllib.request.urlopen(req, timeout=4).read()
-    except Exception:
-        # Alerting is best-effort; never let it crash or block the honeypot.
-        pass
+    except Exception as exc:
+        # Best-effort, but a lost alert must leave a trace. The URL is a secret,
+        # so only the error type and status go in the log.
+        _note("webhook_failed", f"{type(exc).__name__} {getattr(exc, 'code', '')}".strip())
+    finally:
+        _post_slots.release()

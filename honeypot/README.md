@@ -112,7 +112,13 @@ python "C:\ProgramData\Honeypot\honeytokens.py" -c "C:\ProgramData\Honeypot\conf
 powershell -ExecutionPolicy Bypass -File windows\uninstall.ps1
 ```
 
-Both default to high ports (2222/2323/8080) so nothing needs admin just to run. To impersonate real ports (22/23/80), redirect them at the firewall rather than binding low ports; on Linux move your real SSH first so you don't lock yourself out (the installer prints the command).
+The example config also defines FTP (21), SMTP (25), DNS (53, TCP only), HTTP (80), HTTPS (443), SMB (445), RDP (3389), MySQL (3306), PostgreSQL (5432), Redis (6379), MongoDB (27017), Elasticsearch (9200), VNC (5900), LDAP (389) and NFS (2049). A port that can't be bound is reported at startup and skipped, and the rest still run, so check the startup output.
+
+- **Low ports (21/25/53/80/389/443/445):** the hardened Linux unit has no capabilities, so these won't bind. Redirect them at the firewall to a high port, or remove them from the config. To impersonate 22/23 the same way, move your real SSH first so you don't lock yourself out (the installer prints the command).
+- **Ports your machine already uses:** a real service keeps its port and the fake one is skipped. On Windows that normally includes 445.
+- **Firewall:** `-OpenFirewall` only opens 2222/2323/8080 unless you pass `-Ports`.
+- **HTTPS:** set `tls_cert` and `tls_key` to serve a real TLS page. Without them, 443 logs the client's hello and refuses the handshake.
+- **What each protocol can capture:** honeytoken credentials can fire on Telnet, FTP, SMTP, HTTP basic auth, Redis, PostgreSQL and LDAP, where the password arrives readable. MySQL, MongoDB, SMB and VNC only reveal a username and/or challenge response. RDP reveals a username at most. Real SSH clients are fingerprinted (version and HASSH), but they only send a password after key exchange, which this standard-library honeypot doesn't implement.
 
 ## Files
 
@@ -122,6 +128,7 @@ honeypot/
 ├── honeytokens.py       CLI: create / list / revoke tokens, plant decoy files
 ├── tokens.py            the honeytoken store (shared, auto-reloading)
 ├── alerts.py            alert log + webhook dispatch
+├── protocols.py         fake FTP, SMTP, DNS, TLS, SMB, RDP, database, VNC, LDAP, NFS dialogues
 ├── config.example.json  all settings, documented inline
 ├── linux/               install.sh, uninstall.sh, honeypot.service
 ├── windows/             install.ps1, uninstall.ps1
@@ -133,10 +140,10 @@ honeypot/
 
 | Key | Meaning |
 | --- | --- |
-| `services[]` | Which fake services run, on which ports, in which `mode` (`login`, `http`, `banner`) |
+| `services[]` | Which fake services run, on which ports, in which `mode` (`login`, `http`, `banner`, `ftp`, `smtp`, `dns`, `https`, `smb`, `rdp`, `mysql`, `postgres`, `redis`, `mongodb`, `vnc`, `ldap`, `nfs`) |
 | `webhook_url` | POST critical alerts here (null = alert log only) |
 | `state_dir` / `token_store` / `decoy_dir` | Where honeytokens and decoy files live |
-| `max_connections`, `conn_timeout`, `max_line_bytes`, `max_conn_bytes` | Resource caps that stop the honeypot itself being flooded |
+| `max_connections`, `conn_timeout`, `conn_lifetime`, `max_line_bytes`, `max_conn_bytes` | Resource caps that stop the honeypot itself being flooded |
 | `log_max_bytes`, `log_backups` | Log rotation (both activity and alert logs) |
 | `drop_privileges_to` | Linux: drop to this user if started as root (e.g. after binding low ports) |
 
@@ -144,9 +151,10 @@ honeypot/
 
 ```bash
 python3 tests/test_honeypot.py
+python3 tests/test_protocols.py
 ```
 
-16 checks, stable across repeated runs. They plant all three token types with the CLI, run a local webhook receiver, then attack: fake services respond and never grant access; over-long input is bounded (the DoS fix); a credential token fires via SSH **and** via HTTP basic-auth; a canary URL fires and returns believable content; a decoy-file URL serves the planted file; a normal `root`/`hunter2` login and a normal probe raise **no** alert; and all four triggers reach both the alert log and the webhook. A separate check confirms a token planted while the honeypot is running is detected without a restart.
+`test_protocols.py` speaks each new protocol over a raw socket and covers login-parsing edge cases. `test_honeypot.py` has 16 checks, stable across repeated runs. They plant all three token types with the CLI, run a local webhook receiver, then attack: fake services respond and never grant access; over-long input is bounded (the DoS fix); a credential token fires via SSH **and** via HTTP basic-auth; a canary URL fires and returns believable content; a decoy-file URL serves the planted file; a normal `root`/`hunter2` login and a normal probe raise **no** alert; and all four triggers reach both the alert log and the webhook. A separate check confirms a token planted while the honeypot is running is detected without a restart.
 
 ## What changed
 
