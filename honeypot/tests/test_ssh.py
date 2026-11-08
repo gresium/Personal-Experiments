@@ -115,6 +115,17 @@ def main():
         hellos = [e for e in read(tmp, "honeypot.log") if e["event"] == "ssh_client_hello"]
         check("client fingerprint logged", hellos and hellos[0].get("hassh") and "paramiko" in hellos[0]["client_version"].lower())
 
+        s = socket.create_connection((HOST, PORT), 5)
+        s.settimeout(3)
+        s.recv(200)
+        s.sendall(b"SSH-2.0-OpenSSH_8.2p1\r\n")
+        time.sleep(0.4)
+        offer = s.recv(4096)
+        s.close()
+        check("offer matches OpenSSH 8.2's era",
+              b"curve25519-sha256,curve25519-sha256@libssh.org" in offer
+              and b"mlkem" not in offer and b"kex-strict" not in offer)
+
         t = paramiko.Transport((HOST, PORT))
         t.start_client(timeout=10)
         for _ in range(3):

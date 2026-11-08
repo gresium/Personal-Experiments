@@ -76,7 +76,7 @@ python3 honeypot.py -c config.example.json
 From another terminal, act like an intruder who found that credential:
 
 ```bash
-printf 'dbadmin\nS3cr3tDecoy\n' | nc 127.0.0.1 2222
+printf 'dbadmin\nS3cr3tDecoy\n' | nc 127.0.0.1 2323
 ```
 
 Watch the console print `!!! [ALERT:critical] honeytoken_triggered` and check `alerts.log`.
@@ -117,9 +117,11 @@ The example config also defines FTP (21), SMTP (25), DNS (53, TCP only), HTTP (8
 - **Low ports (21/25/53/80/389/443/445):** the hardened Linux unit has no capabilities, so these won't bind. Redirect them at the firewall to a high port, or remove them from the config. To impersonate 22/23 the same way, move your real SSH first so you don't lock yourself out (the installer prints the command).
 - **Ports your machine already uses:** a real service keeps its port and the fake one is skipped. On Windows that normally includes 445.
 - **Firewall:** `-OpenFirewall` only opens 2222/2323/8080 unless you pass `-Ports`.
-- **HTTPS:** set `tls_cert` and `tls_key` to serve a real TLS page. Without them, 443 logs the client's hello and refuses the handshake.
-- **What each protocol can capture:** honeytoken credentials can fire on SSH, Telnet, FTP, SMTP, HTTP basic auth, Redis, PostgreSQL and LDAP, where the password arrives readable. MySQL, MongoDB, SMB and VNC only reveal a username and/or challenge response. RDP reveals a username at most.
-- **SSH:** real clients complete a genuine key exchange through [paramiko](https://www.paramiko.org/) (`pip install -r requirements.txt`; the installers handle this). Passwords and public-key fingerprints are logged, and every login is refused. Host keys are created once in `state_dir`, so they stay the same across restarts. Without paramiko the honeypot still runs and only fingerprints real clients (version and HASSH).
+- **TLS:** with paramiko's `cryptography` dependency installed, a self-signed certificate is generated once in `state_dir` and used by HTTPS, SMTP STARTTLS, MySQL, PostgreSQL and RDP. Set `tls_cert` and `tls_key` to use your own. Without any certificate, those services don't offer TLS and 443 refuses the handshake.
+- **What each protocol can capture:** honeytoken credentials can fire on SSH, Telnet, FTP, SMTP, HTTP basic auth, MySQL, Redis, PostgreSQL and LDAP, where the password arrives readable. MongoDB, SMB and VNC only reveal a username and/or challenge response. RDP reveals a username at most.
+- **Persona:** the example config presents one Ubuntu 20.04 host (OpenSSH 8.2, Apache 2.4.41, vsftpd 3.0.3, Postfix) alongside Windows Server 2019-style RDP, SMB and LDAP. Change hostnames and domains so they suit your network. Real hosts rarely run all of these at once, so remove services you don't need.
+- **Timing:** `response_delay_ms` adds a small random pause before each reply and `auth_fail_delay` adds the pause real servers make after a failed login.
+- **SSH:** real clients complete a genuine key exchange through [paramiko](https://www.paramiko.org/) (`pip install -r requirements.txt`; the installers handle this). Passwords and public-key fingerprints are logged, and every login is refused. Host keys are created once in `state_dir`, so they stay the same across restarts. The server offers OpenSSH 8.2's algorithms in its order, minus those paramiko can't perform (`chacha20-poly1305`, `umac`, `hmac-sha1-etm`, `diffie-hellman-group18`, the `ssh-rsa` host key), so a detailed handshake comparison can still tell it apart. Without paramiko the honeypot still runs and only fingerprints real clients (version and HASSH).
 
 ## Files
 

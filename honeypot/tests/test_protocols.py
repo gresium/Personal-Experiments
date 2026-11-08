@@ -143,11 +143,27 @@ def main():
         plain = base64.b64encode(b"\0" + TOKEN[0] + b"\0" + TOKEN[1])
         before = len(alerts())
         s.sendall(b"AUTH PLAIN " + plain + b"\r\n"); auth = read(s)
-        s.sendall(b"RCPT TO:<x@example.org>\r\n"); rcpt = read(s); s.close()
+        s.sendall(b"MAIL FROM:<a@example.org>\r\n"); read(s)
+        s.sendall(b"RCPT TO:<x@example.org>\r\n"); rcpt = read(s)
+        s.sendall(b"DATA\r\n"); data = read(s); s.close()
         check("SMTP banner, EHLO and auth refusal",
               banner.startswith(b"220") and b"AUTH PLAIN" in ehlo and auth.startswith(b"535"))
         check("SMTP honeytoken fires", len(alerts()) == before + 1)
-        check("SMTP never relays", rcpt.startswith(b"554"))
+        check("SMTP never relays", rcpt == b"554 5.7.1 <x@example.org>: Relay access denied\r\n"
+              and data.startswith(b"554 5.5.1"))
+        check("SMTP EHLO ends like Postfix", ehlo.endswith(b"250-SMTPUTF8\r\n250 CHUNKING\r\n"))
+
+        s = conn("ftp"); read(s); s.sendall(b"SYST\r\n"); reply = read(s); s.close()
+        check("FTP refuses commands before login", reply == b"530 Please login with USER and PASS.\r\n")
+
+        s = conn("redis"); s.sendall(b"NOSUCH a b\r\n"); reply = read(s); s.close()
+        check("Redis unknown command text",
+              reply == b"-ERR unknown command 'NOSUCH', with args beginning with: 'a' 'b' \r\n")
+
+        s = conn("http"); s.sendall(b"not a request\r\n\r\n"); reply = read(s); s.close()
+        check("malformed HTTP gets a 400", reply.startswith(b"HTTP/1.1 400 Bad Request"))
+        s = conn("http"); s.sendall(b"HEAD / HTTP/1.1\r\nHost: x\r\n\r\n"); reply = read(s); s.close()
+        check("HEAD has headers but no body", b"401" in reply[:20] and reply.endswith(b"\r\n\r\n"))
 
         s = conn("redis"); s.sendall(b"*1\r\n$4\r\nPING\r\n"); ping = read(s)
         before = len(alerts())
@@ -178,7 +194,7 @@ def main():
               and len(challenge) == 16 and result[:4] == b"\0\0\0\1")
 
         s = conn("mysql"); greeting = read(s); s.close()
-        check("MySQL protocol 10 greeting", greeting[4] == 10 and b"mysql_native_password" in greeting)
+        check("MySQL protocol 10 greeting", greeting[4] == 10 and b"caching_sha2_password" in greeting)
 
         s = conn("dns")
         q = b"\x12\x34\x01\0\0\1\0\0\0\0\0\0\x07example\x03com\0\0\1\0\1"

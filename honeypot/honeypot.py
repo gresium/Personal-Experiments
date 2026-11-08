@@ -31,6 +31,7 @@ import json
 import logging
 import os
 import platform
+import random
 import re
 import signal
 import socket
@@ -39,7 +40,6 @@ import sys
 import threading
 import time
 from datetime import datetime, timezone
-from email.utils import formatdate
 from logging.handlers import RotatingFileHandler
 from urllib.parse import unquote
 
@@ -96,6 +96,10 @@ STORE: TokenStore | None = None
 _EOL = re.compile(rb"[\r\n]")
 # Telnet option negotiation that clients mix into the login stream.
 _TELNET_IAC = re.compile(rb"\xff(?:[\xfb-\xfe].|\xfa.*?\xff\xf0|[\xf0-\xf9])", re.DOTALL)
+# telnetd's opening option requests: terminal type, speed, X display, environment...
+_TELNET_DO = b"\xff\xfd\x18\xff\xfd\x20\xff\xfd\x23\xff\xfd\x27"
+# ...then suppress go-ahead, window size, status, flow control and server-side echo.
+_TELNET_WILL = b"\xff\xfb\x03\xff\xfd\x01\xff\xfd\x1f\xff\xfb\x05\xff\xfd\x21\xff\xfb\x01"
 
 
 def now_iso() -> str:
@@ -179,6 +183,7 @@ class HoneypotHandler(socketserver.BaseRequestHandler):
             self._buf = bytearray()
             self._skip_lf = False
             self.eof = False
+            self.tls = False
             record(name, "connect", self.client_address)
             mode = self.service.get("mode", "banner")
             if mode == "login":
@@ -195,6 +200,11 @@ class HoneypotHandler(socketserver.BaseRequestHandler):
             record(name, "error", self.client_address, detail=printable(repr(exc)))
         finally:
             record(name, "disconnect", self.client_address)
+            if getattr(self, "tls", False):
+                try:
+                    self.request.close()    # the server only closes the original socket
+                except OSError:
+                    pass
             _conn_slots.release()
 
     # -- honeytoken alerting ---------------------------------------------- #
@@ -237,26 +247,55 @@ class HoneypotHandler(socketserver.BaseRequestHandler):
     def _login_line(self) -> str:
         return _TELNET_IAC.sub(b"", self._recv_line_bytes()).decode("utf-8", "replace")
 
+    def _telnet_line(self, echo: bool) -> str:
+        """Read a line as telnetd does, echoing keystrokes but never the password."""
+        shown = 0
+        while True:
+            self._drop_line_end()
+            clean = _TELNET_IAC.sub(b"", bytes(self._buf))
+            end = _EOL.search(clean)
+            typed = clean[:end.start()] if end else clean
+            if echo and len(typed) > shown:
+                self.send_bytes(bytes(c for c in typed[shown:] if 32 <= c < 127))
+                shown = len(typed)
+            if end or len(self._buf) >= self.limits["max_line_bytes"] or not self._fill():
+                if echo:
+                    self.send("\r\n")
+                return self._login_line()
+
     def _do_login(self, svc: dict) -> None:
         banner = svc.get("banner", "")
+        telnet = svc.get("telnet_negotiate", False)
+        if telnet:
+            self.send_bytes(_TELNET_DO)
+            self._fill(timeout=0.3)     # let the client answer, as telnetd does
+            self.send_bytes(_TELNET_WILL)
         if banner:
             self.send(banner if banner.endswith(("\r\n", "\n")) else banner + "\r\n")
         if banner.startswith("SSH-"):
             # Real SSH clients announce themselves straight away, and would choke
-            # on a text prompt. Anything else falls through to the line login.
-            self._fill(timeout=float(svc.get("ssh_hello_wait", 2.0)))
+            # on a text prompt. Anything else gets sshd's refusal, or the line
+            # login if ssh_line_login is on (it is unrealistic but handy for tests).
+            line_login = svc.get("ssh_line_login", True)
+            self._fill(timeout=float(svc.get("ssh_hello_wait", 2.0)) if line_login else None)
             if self._buf.startswith(b"SSH-"):
                 if not protocols.ssh_server(self, svc, banner):
                     protocols.ssh_client(self, svc, self.recv_line())
                 return
+            if not line_login:
+                if self._buf:
+                    self.send("Invalid SSH identification string.\r\n")
+                return
+        read_line = self._telnet_line if telnet else (lambda echo: self._login_line())
         for _ in range(max(1, int(svc.get("login_rounds", 3)))):
             self.send(svc.get("user_prompt", "login: "))
-            user = self._login_line()
+            user = read_line(True)
             if not user and self.eof:
                 break       # a bare connect is not a login attempt
             self.send(svc.get("pass_prompt", "Password: "))
-            pw = self._login_line()
+            pw = read_line(False)
             self.login(user, pw)
+            self.pause_auth()
             self.send(svc.get("deny", "\r\nAccess denied\r\n"))
             if self.eof or (user == "" and pw == ""):
                 break
@@ -308,7 +347,10 @@ class HoneypotHandler(socketserver.BaseRequestHandler):
         if cred_token:
             self._fire(cred_token, "http_basic_auth", **creds)
 
-        self.send(protocols.http_401(svc, path, headers.get("host", "localhost")))
+        malformed = not re.fullmatch(r"[A-Z]+ \S+ HTTP/\d\.\d", request_line)
+        no_host = request_line.endswith("HTTP/1.1") and "host" not in headers
+        self.send_bytes(protocols.http_error(svc, 400 if malformed or no_host else 401, parts[0] if parts else "",
+                                             path, headers.get("host", ""), creds.get("username", "")))
 
     def _serve_token(self, token: dict, svc: dict) -> None:
         """Return believable content for a canary URL so the hit looks successful."""
@@ -319,27 +361,31 @@ class HoneypotHandler(socketserver.BaseRequestHandler):
             try:
                 with open(decoy, "rb") as f:
                     data = f.read(self.limits["max_conn_bytes"])
-                ctype = "text/plain; charset=utf-8"
+                ctype = "text/plain"
             except OSError:
                 pass
-        header = (
-            "HTTP/1.1 200 OK\r\n"
-            f"Date: {formatdate(usegmt=True)}\r\n"
-            f"Server: {svc.get('server', 'Apache/2.4.52 (Ubuntu)')}\r\n"
-            f"Content-Type: {ctype}\r\n"
-            f"Content-Length: {len(data)}\r\nConnection: close\r\n\r\n"
-        ).encode("utf-8")
         try:
-            self.request.sendall(header + data)
-        except OSError:
-            pass
+            modified = datetime.fromisoformat(token.get("created", "")).timestamp()
+        except ValueError:
+            modified = time.time() - 86400
+        self.send_bytes(protocols.http_ok_headers(svc, ctype, len(data), modified) + data)
 
     # -- bounded I/O ------------------------------------------------------- #
 
     def send(self, text: str) -> None:
         self.send_bytes(text.encode("utf-8", "replace"))
 
+    def pause(self, seconds: float) -> None:
+        if seconds > 0:
+            time.sleep(seconds * random.uniform(0.85, 1.15))
+
+    def pause_auth(self) -> None:
+        self.pause(float(self.service.get("auth_fail_delay", 0)))
+
     def send_bytes(self, data: bytes) -> None:
+        delay = self.service.get("response_delay_ms")
+        if delay:
+            time.sleep(random.uniform(delay[0], delay[1]) / 1000)
         try:
             self.request.sendall(data)
         except OSError:
@@ -548,6 +594,9 @@ def main(argv=None) -> int:
         else:
             # After dropping privileges, so the service account owns the key files.
             protocols.load_ssh_host_keys(cfg.get("state_dir") or default_state_dir())
+    if any(s.get("mode") in ("https", "smtp", "mysql", "postgres", "rdp") for s in cfg["services"]):
+        hostname = next((s["hostname"] for s in cfg["services"] if s.get("hostname")), "localhost")
+        protocols.load_tls(cfg.get("state_dir") or default_state_dir(), hostname)
     for server in servers:
         threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"Honeypot running.\n  activity : {log_path}\n  alerts   : {alert_path}\n"
