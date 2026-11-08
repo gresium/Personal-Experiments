@@ -20,14 +20,14 @@
 
   "services": [
     { "name": "ssh", "bind": "0.0.0.0", "port": 2222, "mode": "login", "banner": "SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.5", "ssh_line_login": false, "ssh_auth_delay": 2, "max_auth_tries": 6 },
-    { "name": "telnet", "bind": "0.0.0.0", "port": 2323, "mode": "login", "telnet_negotiate": true, "banner": "Ubuntu 20.04.6 LTS\r\n", "user_prompt": "mail01 login: ", "pass_prompt": "Password: ", "deny": "\r\nLogin incorrect\r\n", "login_rounds": 3, "auth_fail_delay": 3, "response_delay_ms": [2, 10] },
+    { "name": "telnet", "bind": "0.0.0.0", "port": 2323, "mode": "login", "telnet_negotiate": true, "banner": "Ubuntu 20.04.6 LTS\r\n", "user_prompt": "srv01 login: ", "pass_prompt": "Password: ", "deny": "\r\nLogin incorrect\r\n", "login_rounds": 3, "auth_fail_delay": 3, "response_delay_ms": [2, 10] },
     { "name": "http", "bind": "0.0.0.0", "port": 8080, "mode": "http", "server": "Apache/2.4.41 (Ubuntu)", "response_delay_ms": [1, 6] },
     { "name": "ftp", "bind": "0.0.0.0", "port": 21, "mode": "ftp", "banner": "220 (vsFTPd 3.0.3)\r\n", "max_login_fails": 3, "auth_fail_delay": 1, "response_delay_ms": [2, 12] },
-    { "name": "smtp", "bind": "0.0.0.0", "port": 25, "mode": "smtp", "hostname": "mail01.corp.local", "banner": "220 mail01.corp.local ESMTP Postfix (Ubuntu)\r\n", "auth_fail_delay": 1, "response_delay_ms": [3, 15] },
+    { "name": "smtp", "bind": "0.0.0.0", "port": 25, "mode": "smtp", "hostname": "srv01.corp.local", "banner": "220 srv01.corp.local ESMTP Postfix (Ubuntu)\r\n", "auth_fail_delay": 1, "response_delay_ms": [3, 15] },
     { "name": "dns", "bind": "0.0.0.0", "port": 53, "mode": "dns", "version": "9.16.1-Ubuntu", "response_delay_ms": [1, 5] },
     { "name": "http-80", "bind": "0.0.0.0", "port": 80, "mode": "http", "server": "Apache/2.4.41 (Ubuntu)", "response_delay_ms": [1, 6] },
     { "name": "https", "bind": "0.0.0.0", "port": 443, "mode": "https", "server": "nginx/1.18.0 (Ubuntu)", "tls_cert": null, "tls_key": null, "response_delay_ms": [2, 10] },
-    { "name": "smb", "bind": "0.0.0.0", "port": 445, "mode": "smb", "domain": "CORP", "dns_domain": "corp.local", "computer": "FILESRV01", "auth_fail_delay": 0.1, "response_delay_ms": [5, 25] },
+    { "name": "smb", "bind": "0.0.0.0", "port": 445, "mode": "smb", "domain": "CORP", "dns_domain": "corp.local", "computer": "SRV01", "auth_fail_delay": 0.1, "response_delay_ms": [5, 25] },
     { "name": "rdp", "bind": "0.0.0.0", "port": 3389, "mode": "rdp", "response_delay_ms": [10, 40] },
     { "name": "mysql", "bind": "0.0.0.0", "port": 3306, "mode": "mysql", "version": "8.0.39-0ubuntu0.20.04.1", "auth_fail_delay": 0.02, "response_delay_ms": [1, 6] },
     { "name": "postgres", "bind": "0.0.0.0", "port": 5432, "mode": "postgres", "auth_fail_delay": 0.02, "response_delay_ms": [2, 10] },
@@ -35,7 +35,7 @@
     { "name": "mongodb", "bind": "0.0.0.0", "port": 27017, "mode": "mongodb", "version": "6.0.18", "auth_fail_delay": 0.05, "response_delay_ms": [1, 5] },
     { "name": "elasticsearch", "bind": "0.0.0.0", "port": 9200, "mode": "http", "profile": "elasticsearch", "response_delay_ms": [3, 18] },
     { "name": "vnc", "bind": "0.0.0.0", "port": 5900, "mode": "vnc", "banner": "RFB 005.000\n", "security_types": [13, 6, 2], "auth_fail_delay": 1, "response_delay_ms": [2, 10] },
-    { "name": "ldap", "bind": "0.0.0.0", "port": 389, "mode": "ldap", "computer": "DC01", "naming_context": "DC=corp,DC=local", "auth_fail_delay": 0.1, "response_delay_ms": [2, 12] },
+    { "name": "ldap", "bind": "0.0.0.0", "port": 389, "mode": "ldap", "computer": "SRV01", "naming_context": "DC=corp,DC=local", "auth_fail_delay": 0.1, "response_delay_ms": [2, 12] },
     { "name": "nfs", "bind": "0.0.0.0", "port": 2049, "mode": "nfs", "response_delay_ms": [0.2, 2] }
   ]
 }

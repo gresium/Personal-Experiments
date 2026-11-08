@@ -221,6 +221,19 @@ def main():
             reqs = [e for e in map(json.loads, f) if e["event"] == "http_request"]
         check("LF-only HTTP requests are parsed", reqs[-1]["user_agent"] == "UA-LF")
 
+        with open(os.path.join(ROOT, "config.example.json"), encoding="utf-8") as f:
+            example = {s["name"]: s for s in json.load(f)["services"]}
+        fqdn = example["smtp"]["hostname"]
+        short, domain = fqdn.split(".", 1)
+        check("example config uses one machine name",
+              example["telnet"]["user_prompt"] == f"{short} login: "
+              and example["smtp"]["banner"].startswith(f"220 {fqdn} ")
+              and example["smb"]["computer"].lower() == short
+              and example["ldap"]["computer"].lower() == short)
+        check("example config uses one domain",
+              example["smb"]["dns_domain"] == domain
+              and example["ldap"]["naming_context"] == ",".join(f"DC={p}" for p in domain.split(".")))
+
         check("honeypot survived everything", proc.poll() is None)
     finally:
         proc.terminate()
