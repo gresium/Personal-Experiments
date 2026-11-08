@@ -2,7 +2,7 @@
 
 A decoy that listens on ports attackers probe (SSH, Telnet, HTTP), pretends to be the real service, and logs every attempt — plus a **honeytoken** system: decoy credentials and canary URLs you plant around your environment. Nothing legitimate ever touches a honeytoken, so any hit is a high-confidence intrusion signal that raises a **critical alert** to a log and an optional webhook.
 
-It **never grants access** and **never runs anything a client sends**. One cross-platform Python program (standard library only, 3.8+), plus hardened service installers for each OS.
+It **never grants access** and **never runs anything a client sends**. One cross-platform Python program (3.8+, with `paramiko` as the only dependency, used for real SSH capture), plus hardened service installers for each OS.
 
 This extends a minimal fake-SSH script into something you can actually deploy. See [what changed](#what-changed).
 
@@ -118,7 +118,8 @@ The example config also defines FTP (21), SMTP (25), DNS (53, TCP only), HTTP (8
 - **Ports your machine already uses:** a real service keeps its port and the fake one is skipped. On Windows that normally includes 445.
 - **Firewall:** `-OpenFirewall` only opens 2222/2323/8080 unless you pass `-Ports`.
 - **HTTPS:** set `tls_cert` and `tls_key` to serve a real TLS page. Without them, 443 logs the client's hello and refuses the handshake.
-- **What each protocol can capture:** honeytoken credentials can fire on Telnet, FTP, SMTP, HTTP basic auth, Redis, PostgreSQL and LDAP, where the password arrives readable. MySQL, MongoDB, SMB and VNC only reveal a username and/or challenge response. RDP reveals a username at most. Real SSH clients are fingerprinted (version and HASSH), but they only send a password after key exchange, which this standard-library honeypot doesn't implement.
+- **What each protocol can capture:** honeytoken credentials can fire on SSH, Telnet, FTP, SMTP, HTTP basic auth, Redis, PostgreSQL and LDAP, where the password arrives readable. MySQL, MongoDB, SMB and VNC only reveal a username and/or challenge response. RDP reveals a username at most.
+- **SSH:** real clients complete a genuine key exchange through [paramiko](https://www.paramiko.org/) (`pip install -r requirements.txt`; the installers handle this). Passwords and public-key fingerprints are logged, and every login is refused. Host keys are created once in `state_dir`, so they stay the same across restarts. Without paramiko the honeypot still runs and only fingerprints real clients (version and HASSH).
 
 ## Files
 
@@ -152,9 +153,10 @@ honeypot/
 ```bash
 python3 tests/test_honeypot.py
 python3 tests/test_protocols.py
+python3 tests/test_ssh.py       # needs paramiko; skipped without it
 ```
 
-`test_protocols.py` speaks each new protocol over a raw socket and covers login-parsing edge cases. `test_honeypot.py` has 16 checks, stable across repeated runs. They plant all three token types with the CLI, run a local webhook receiver, then attack: fake services respond and never grant access; over-long input is bounded (the DoS fix); a credential token fires via SSH **and** via HTTP basic-auth; a canary URL fires and returns believable content; a decoy-file URL serves the planted file; a normal `root`/`hunter2` login and a normal probe raise **no** alert; and all four triggers reach both the alert log and the webhook. A separate check confirms a token planted while the honeypot is running is detected without a restart.
+`test_ssh.py` logs in with a real SSH client and checks capture, refusal, honeytoken alerts and stable host keys. `test_protocols.py` speaks each new protocol over a raw socket and covers login-parsing edge cases. `test_honeypot.py` has 16 checks, stable across repeated runs. They plant all three token types with the CLI, run a local webhook receiver, then attack: fake services respond and never grant access; over-long input is bounded (the DoS fix); a credential token fires via SSH **and** via HTTP basic-auth; a canary URL fires and returns believable content; a decoy-file URL serves the planted file; a normal `root`/`hunter2` login and a normal probe raise **no** alert; and all four triggers reach both the alert log and the webhook. A separate check confirms a token planted while the honeypot is running is detected without a restart.
 
 ## What changed
 

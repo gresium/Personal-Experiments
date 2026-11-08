@@ -36,6 +36,13 @@ install -m 0644 "$SRC_DIR/tokens.py" "$APP_DIR/tokens.py"
 install -m 0644 "$SRC_DIR/alerts.py" "$APP_DIR/alerts.py"
 install -m 0644 "$SRC_DIR/protocols.py" "$APP_DIR/protocols.py"
 
+echo "==> Installing paramiko for SSH credential capture"
+if ! python3 -m pip install --quiet --upgrade --target "$APP_DIR/lib" -r "$SRC_DIR/requirements.txt"; then
+    # No pip here (common on Debian/Ubuntu); fall back to the distro package.
+    apt-get install -y python3-paramiko || dnf install -y python3-paramiko || \
+        echo "    WARNING: paramiko not installed; real SSH clients will only be fingerprinted"
+fi
+
 echo "==> Installing config to $CFG_DIR"
 install -d -m 0755 "$CFG_DIR"
 if [[ -f "$CFG_DIR/config.json" ]]; then

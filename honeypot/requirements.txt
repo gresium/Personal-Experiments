@@ -1,0 +1,2 @@
+# Only needed to capture passwords from real SSH clients.
+paramiko>=3.4

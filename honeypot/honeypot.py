@@ -11,7 +11,9 @@ decoy credentials and unique canary URLs you plant around your environment.
 Because nothing legitimate ever uses them, any hit is a high-confidence
 intrusion signal and raises a critical alert (alert log + optional webhook).
 
-Runs on Linux and Windows with only the Python standard library (3.8+).
+Runs on Linux and Windows with Python 3.8+. Real SSH credential capture needs
+paramiko (see requirements.txt); every other service uses only the standard
+library, and without paramiko real SSH clients are fingerprinted instead.
 
 Safe-use notes:
   * Run it only on systems you own or are authorised to test.
@@ -40,6 +42,11 @@ from datetime import datetime, timezone
 from email.utils import formatdate
 from logging.handlers import RotatingFileHandler
 from urllib.parse import unquote
+
+# The installers put paramiko here so the service account can always import it.
+_LIB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib")
+if os.path.isdir(_LIB):
+    sys.path.insert(0, _LIB)
 
 import alerts
 import protocols
@@ -237,9 +244,10 @@ class HoneypotHandler(socketserver.BaseRequestHandler):
         if banner.startswith("SSH-"):
             # Real SSH clients announce themselves straight away, and would choke
             # on a text prompt. Anything else falls through to the line login.
-            self._fill(timeout=float(svc.get("ssh_hello_wait", 1.0)))
+            self._fill(timeout=float(svc.get("ssh_hello_wait", 2.0)))
             if self._buf.startswith(b"SSH-"):
-                protocols.ssh_client(self, svc, self.recv_line())
+                if not protocols.ssh_server(self, svc, banner):
+                    protocols.ssh_client(self, svc, self.recv_line())
                 return
         for _ in range(max(1, int(svc.get("login_rounds", 3)))):
             self.send(svc.get("user_prompt", "login: "))
@@ -532,6 +540,14 @@ def main(argv=None) -> int:
 
     # Drop root before accepting anything from the network.
     maybe_drop_privileges(cfg)
+    if any(str(s.get("banner", "")).startswith("SSH-") for s in cfg["services"]):
+        if protocols.paramiko is None:
+            print("WARNING: paramiko is not installed, so real SSH clients are only "
+                  "fingerprinted. Install requirements.txt to capture SSH passwords.",
+                  file=sys.stderr, flush=True)
+        else:
+            # After dropping privileges, so the service account owns the key files.
+            protocols.load_ssh_host_keys(cfg.get("state_dir") or default_state_dir())
     for server in servers:
         threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"Honeypot running.\n  activity : {log_path}\n  alerts   : {alert_path}\n"

@@ -11,9 +11,10 @@ service's config dict. All reads go through the handler's bounded I/O, so the
 line, connection-byte and lifetime caps apply. Malformed binary input raises
 IndexError/struct.error, which the handler records as an "error" event.
 
-Where a protocol sends the password in the clear (FTP, SMTP, Redis, PostgreSQL,
-LDAP) a credential honeytoken can fire. MySQL, MongoDB, SMB and VNC only send a
-challenge response, and SSH and RDP encrypt it, so those log what they can.
+Where a protocol reveals the password (SSH with paramiko installed, FTP, SMTP,
+Redis, PostgreSQL, LDAP) a credential honeytoken can fire. MySQL, MongoDB, SMB
+and VNC only send a challenge response, and RDP encrypts it, so those log what
+they can.
 """
 
 from __future__ import annotations
@@ -22,14 +23,29 @@ import base64
 import hashlib
 import html
 import json
+import logging
 import os
 import re
 import ssl
 import struct
+import sys
+import threading
 import time
 from email.utils import formatdate
 
+try:
+    import paramiko
+    # Hostile clients trigger constant paramiko errors; those aren't log material.
+    logging.getLogger("paramiko").addHandler(logging.NullHandler())
+    logging.getLogger("paramiko").setLevel(logging.CRITICAL)
+except Exception:   # a missing or broken install must not stop the other services
+    paramiko = None
+
 MAX_COMMANDS = 32
+SSH_MAX_BYTES = 256 * 1024
+_ssh_keys: list = []
+# Key exchange is CPU-heavy and each session adds a thread, so cap them.
+_ssh_slots = threading.BoundedSemaphore(64)
 
 
 def _limit(h) -> int:
@@ -51,11 +67,149 @@ _SSH_ALGOS = [
 ]
 
 
-def ssh_client(h, svc: dict, client_version: str) -> None:
-    """A real SSH client: swap KEXINITs, log its fingerprint, then hang up.
+def _kexinit_fields(body: bytes) -> dict:
+    if body[:1] != b"\x14":
+        return {}
+    off, lists = 17, []
+    for _ in range(10):
+        n = struct.unpack(">I", body[off:off + 4])[0]
+        lists.append(body[off + 4:off + 4 + n].decode("ascii", "replace"))
+        off += 4 + n
+    # HASSH: a stable fingerprint of the client's SSH implementation.
+    return {"kex_algorithms": lists[0],
+            "hassh": hashlib.md5(";".join((lists[0], lists[2], lists[4], lists[6])).encode()).hexdigest()}
 
-    Passwords are only sent after key exchange, which needs real cryptography,
-    so real SSH clients are fingerprinted here but never give up credentials.
+
+def load_ssh_host_keys(directory: str) -> None:
+    """Load the host keys, creating them once so they stay the same across restarts."""
+    for filename, cls, make in (("ssh_host_rsa_key", paramiko.RSAKey, lambda: paramiko.RSAKey.generate(3072)),
+                                ("ssh_host_ecdsa_key", paramiko.ECDSAKey, paramiko.ECDSAKey.generate)):
+        path = os.path.join(directory, filename)
+        key = None
+        try:
+            if os.path.exists(path):
+                key = cls.from_private_key_file(path)
+            else:
+                key = make()
+                os.makedirs(directory, exist_ok=True)
+                key.write_private_key_file(path)
+        except (OSError, ValueError, paramiko.SSHException) as exc:
+            print(f"WARNING: SSH host key {path}: {exc}", file=sys.stderr, flush=True)
+        if key:
+            _ssh_keys.append(key)
+
+
+class _ReplaySocket:
+    """Hands paramiko a socket whose banner exchange has already started.
+
+    The honeypot sends its banner at once, as sshd does, then reads the client's
+    bytes to tell a real client from a raw connection. Those bytes are replayed
+    here, and paramiko's own banner is skipped because it has already gone out.
+    """
+
+    def __init__(self, sock, replay: bytes):
+        self._sock = sock
+        self._replay = bytearray(replay)
+        self._banner_skipped = False
+        self._budget = SSH_MAX_BYTES - len(replay)
+        self.inbound = bytes(replay[:8192])
+
+    def recv(self, count: int) -> bytes:
+        if self._replay:
+            data = bytes(self._replay[:count])
+            del self._replay[:count]
+            return data
+        if self._budget <= 0:
+            return b""
+        data = self._sock.recv(count)
+        self._budget -= len(data)
+        if len(self.inbound) < 8192:
+            self.inbound += data[:8192 - len(self.inbound)]
+        return data
+
+    def send(self, data) -> int:
+        if not self._banner_skipped and bytes(data[:4]) == b"SSH-":
+            self._banner_skipped = True
+            return len(data)
+        return self._sock.send(data)
+
+    def __getattr__(self, name):
+        return getattr(self._sock, name)
+
+
+class _SSHAuth(paramiko.ServerInterface if paramiko else object):
+    """Records every authentication attempt and refuses all of them."""
+
+    def __init__(self, h, svc: dict, transport):
+        self.h, self.transport = h, transport
+        self.delay = float(svc.get("ssh_auth_delay", 0))
+        self.tries_left = int(svc.get("max_auth_tries", 6))
+        self.exhausted = False
+
+    def _refuse(self) -> int:
+        self.tries_left -= 1
+        self.exhausted = self.tries_left <= 0
+        return paramiko.AUTH_FAILED
+
+    def get_allowed_auths(self, username: str) -> str:
+        return "publickey,password"
+
+    def check_auth_none(self, username: str) -> int:
+        return paramiko.AUTH_FAILED
+
+    def check_auth_password(self, username: str, password: str) -> int:
+        self.h.login(username, password, client_version=self.transport.remote_version)
+        time.sleep(self.delay)      # sshd pauses after a wrong password; so do we
+        return self._refuse()
+
+    def check_auth_publickey(self, username: str, key) -> int:
+        digest = base64.b64encode(hashlib.sha256(key.asbytes()).digest()).decode().rstrip("=")
+        self.h.event("login_attempt", username=username, key_type=key.get_name(),
+                     key_fingerprint=f"SHA256:{digest}", client_version=self.transport.remote_version)
+        return self._refuse()
+
+    def check_channel_request(self, kind: str, chanid: int) -> int:
+        return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+
+
+def ssh_server(h, svc: dict, banner: str) -> bool:
+    """Run real SSH key exchange and capture credentials. False if unavailable."""
+    if paramiko is None or not _ssh_keys or not _ssh_slots.acquire(blocking=False):
+        return False
+    sock = _ReplaySocket(h.request, bytes(h._buf))
+    h._buf.clear()
+    transport = None
+    try:
+        transport = paramiko.Transport(sock)
+        transport.local_version = banner.strip()
+        transport.banner_timeout = transport.handshake_timeout = h.limits["conn_timeout"]
+        for key in _ssh_keys:
+            transport.add_server_key(key)
+        auth = _SSHAuth(h, svc, transport)
+        transport.start_server(event=threading.Event(), server=auth)
+        while transport.is_active() and not auth.exhausted and time.monotonic() < h._deadline:
+            time.sleep(0.1)
+    except (paramiko.SSHException, OSError, EOFError):
+        pass
+    finally:
+        if transport:
+            transport.close()
+        _ssh_slots.release()
+    line, _, rest = sock.inbound.partition(b"\n")
+    fields = {"client_version": line.strip().decode("ascii", "replace")[:255]}
+    try:
+        size = struct.unpack(">I", rest[:4])[0]
+        fields.update(_kexinit_fields(rest[5:4 + size]))
+    except (struct.error, IndexError):
+        pass
+    h.event("ssh_client_hello", **fields)
+    return True
+
+
+def ssh_client(h, svc: dict, client_version: str) -> None:
+    """Fallback without paramiko: swap KEXINITs, log a fingerprint, then hang up.
+
+    Passwords are only sent after key exchange, so this path can't capture them.
     """
     payload = b"\x14" + os.urandom(16)
     for names in _SSH_ALGOS:
@@ -71,17 +225,7 @@ def ssh_client(h, svc: dict, client_version: str) -> None:
     if len(head) == 5:
         size, pad = struct.unpack(">IB", head)
         if 0 < size <= _limit(h):
-            body = h.recv_exact(size - 1)
-            if body[:1] == b"\x14":
-                off, lists = 17, []
-                for _ in range(10):
-                    n = struct.unpack(">I", body[off:off + 4])[0]
-                    lists.append(body[off + 4:off + 4 + n].decode("ascii", "replace"))
-                    off += 4 + n
-                fields["kex_algorithms"] = lists[0]
-                # HASSH: a stable fingerprint of the client's SSH implementation.
-                fields["hassh"] = hashlib.md5(
-                    ";".join((lists[0], lists[2], lists[4], lists[6])).encode()).hexdigest()
+            fields.update(_kexinit_fields(h.recv_exact(size - 1)))
     h.event("ssh_client_hello", **fields)
 
 

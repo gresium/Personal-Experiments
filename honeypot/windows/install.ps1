@@ -78,6 +78,12 @@ if (Test-Path $CfgPath) {
 $python = Find-Python
 Write-Host "==> Using Python at $python"
 
+Write-Host '==> Installing paramiko for SSH credential capture'
+$pip = Join-Path (Split-Path $python) 'python.exe'      # pythonw.exe has no console output
+if (-not (Test-Path $pip)) { $pip = $python }
+& $pip -m pip install --quiet --upgrade --target (Join-Path $AppDir 'lib') -r (Join-Path $SrcDir 'requirements.txt')
+if ($LASTEXITCODE -ne 0) { Write-Warning 'paramiko not installed; real SSH clients will only be fingerprinted.' }
+
 Write-Host "==> Registering the '$TaskName' scheduled task (starts at boot, runs as LOCAL SERVICE)"
 $action    = New-ScheduledTaskAction -Execute $python -Argument """$Script"" -c ""$CfgPath""" -WorkingDirectory $AppDir
 $trigger   = New-ScheduledTaskTrigger -AtStartup

@@ -25,6 +25,8 @@
       "port": 2222,
       "mode": "login",
       "banner": "SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.5",
+      "ssh_auth_delay": 2,
+      "max_auth_tries": 6,
       "user_prompt": "login: ",
       "pass_prompt": "Password: ",
       "deny": "\r\nPermission denied, please try again.\r\n",

@@ -119,10 +119,17 @@ def main():
         reply = read(s, 0.4)
         names = b"curve25519-sha256"
         kex = b"\x14" + b"\0" * 16 + b"".join(struct.pack(">I", len(names)) + names for _ in range(10)) + b"\0" * 5
-        s.sendall(struct.pack(">IB", len(kex) + 5, 4) + kex + b"\0" * 4); read(s, 0.4); s.close(); time.sleep(0.2)
+        pad = 8 - ((5 + len(kex)) % 8)
+        pad += 8 if pad < 4 else 0      # SSH packets must align to 8 bytes
+        s.sendall(struct.pack(">IB", len(kex) + pad + 1, pad) + kex + b"\0" * pad); read(s, 0.4); s.close(); time.sleep(0.2)
         check("real SSH client gets KEXINIT, not a text prompt", b"login:" not in reply and b"curve25519" in reply)
-        with open(os.path.join(tmp, "honeypot.log"), encoding="utf-8") as f:
-            hello = [e for e in map(json.loads, f) if e["event"] == "ssh_client_hello"]
+        hello = []
+        for _ in range(40):     # with paramiko the record is written as the session ends
+            with open(os.path.join(tmp, "honeypot.log"), encoding="utf-8") as f:
+                hello = [e for e in map(json.loads, f) if e["event"] == "ssh_client_hello"]
+            if hello:
+                break
+            time.sleep(0.1)
         check("SSH client version and HASSH are logged",
               hello and hello[-1]["client_version"] == "SSH-2.0-TestClient_1.0" and hello[-1].get("hassh"))
 
