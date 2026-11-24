@@ -16,4 +16,4 @@ This repo is a place to keep my own side experiments in one spot instead of leav
 
 This is a work in progress. Things get added, changed, renamed or abandoned without warning. Some folders may be empty, half done or out of date. If you use anything from here, check it first and use it at your own risk.
 
-#Author: Gresium
+# Author: Gresium
