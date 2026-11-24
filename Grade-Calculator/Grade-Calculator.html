@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grade Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* Direction: dark, calm tracker. Teal accent; red/amber/green only for pass status. */
+:root{
+  --bg:#0b1211; --surface:#141d1b; --ink:#e7efec; --muted:#9bb0aa; --line:#26352f;
+  --accent:#2dd4bf; --accent-ink:#06201c;
+  --ok:#5fd382; --ok-bg:#16301f; --warn:#f0b64e; --warn-bg:#3a2b0e; --bad:#ff8a80; --bad-bg:#40191a;
+  --track:#22302c;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);line-height:1.45;padding:20px 16px 48px}
+main{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+h1{font-size:1.55rem;line-height:1.2;margin:0;text-wrap:balance}
+h2{font-size:1.05rem;margin:0 0 2px;text-wrap:balance}
+h3{font-size:1rem;margin:0}
+p{margin:0}
+.sub{color:var(--muted);font-size:.92rem;margin-top:6px;max-width:64ch}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.meta{font-size:.82rem;color:var(--muted)}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.gcard{background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.gcard.s-warn{border-left-color:var(--warn)}
+.gcard.s-bad{border-left-color:var(--bad)}
+.gcard.s-none{border-left-color:var(--line)}
+.gtop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.pill{font-size:.74rem;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;background:var(--ok-bg);color:var(--ok)}
+.s-warn .pill{background:var(--warn-bg);color:var(--warn)}
+.s-bad .pill{background:var(--bad-bg);color:var(--bad)}
+.s-none .pill{background:var(--track);color:var(--muted)}
+.avg{font-family:var(--font-mono);font-size:2.1rem;line-height:1;font-weight:600}
+.s-ok .avg{color:var(--ok)} .s-warn .avg{color:var(--warn)} .s-bad .avg{color:var(--bad)} .s-none .avg{color:var(--muted)}
+.need{font-size:.88rem;background:var(--bg);border-radius:8px;padding:8px 10px}
+.need b{font-family:var(--font-mono)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.group{display:flex;flex-direction:column;gap:6px}
+.group h3{display:flex;justify-content:space-between;gap:8px;font-size:.95rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);padding-bottom:6px;margin-top:4px}
+.entry{display:grid;grid-template-columns:1fr 84px 40px;gap:8px;align-items:center}
+.entry .nm{overflow-wrap:anywhere}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 8px;min-width:0}
+input[type=number]{font-family:var(--font-mono);width:100%}
+button{font:inherit;cursor:pointer}
+.del{height:38px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--muted);font-size:1.1rem;line-height:1}
+.del:hover{border-color:var(--bad);color:var(--bad)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.add{display:grid;grid-template-columns:1fr;gap:8px}
+@media (min-width:640px){.add{grid-template-columns:1.4fr 1.2fr 100px auto;align-items:end}}
+.add label,.calc label{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--muted)}
+.primary{padding:10px 16px;border-radius:8px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:600;height:40px}
+.ghost{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--ink)}
+.calc{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;align-items:end}
+.result{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.result div{background:var(--bg);border-radius:8px;padding:10px;text-align:center}
+.result b{display:block;font-family:var(--font-mono);font-size:1.5rem}
+.result span{font-size:.78rem;color:var(--muted)}
+.foot{font-size:.84rem;color:var(--muted);display:flex;flex-direction:column;gap:6px;max-width:72ch}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Grade tracker</h1>
+    <p class="sub">Enter your test grades to see each promotion group, whether it is at 4.0 or higher, and what the next test must be to stay there.</p>
+  </header>
+
+  <section class="cards" id="cards" aria-live="polite"></section>
+
+  <section class="panel" id="ek-panel"></section>
+
+  <section class="panel">
+    <h2>Your grades</h2>
+    <div id="entries"></div>
+    <form class="add" id="add-form">
+      <label>Test or subject<input type="text" id="new-name" placeholder="e.g. Networking test" maxlength="40" required></label>
+      <label>Group
+        <select id="new-group"></select>
+      </label>
+      <label>Grade<input type="number" id="new-grade" min="1" max="6" step="0.1" inputmode="decimal" placeholder="4.5" required></label>
+      <button class="primary" type="submit">Add</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Points to grade</h2>
+    <p class="meta">Grade = 5 × points ÷ max points + 1. Many tests round to half grades.</p>
+    <div class="calc">
+      <label>Your points<input type="number" id="c-pts" min="0" step="0.5" inputmode="decimal" placeholder="e.g. 20"></label>
+      <label>Max points<input type="number" id="c-max" min="1" step="0.5" inputmode="decimal" placeholder="e.g. 40"></label>
+      <label>Rounding
+        <select id="c-round"><option value="0.5">Half grades</option><option value="0.1">One decimal</option></select>
+      </label>
+    </div>
+    <div class="result" id="c-result"></div>
+  </section>
+
+  <section class="foot">
+    <p><b>How it counts:</b> promotion needs an average of at least 4.0 in Informatik, Mathe/Englisch and ABU. ÜK and Sport are shown separately. Each test is treated as its own module, and tests are averaged equally. Ask your teacher if the school weights them differently.</p>
+    <p>Nothing is filled in. Your grades stay in this browser only.</p>
+    <div class="row-actions"><button class="ghost" id="clear" type="button">Clear all grades</button></div>
+  </section>
+</main>
+
+<script>
+// LOGIC START
+const GROUPS=[
+  {id:'inf',name:'Informatik',promo:true},
+  {id:'abu',name:'ABU',promo:true},
+  {id:'me',name:'Mathe / Englisch',promo:true},
+  {id:'uek',name:'ÜK',promo:false},
+  {id:'sport',name:'Sport',promo:false}
+];
+const DEFAULTS=[];
+function roundTo(x,step){ return Math.round(x/step+1e-9)*step; }
+function stats(entries,groupId){
+  const g=entries.filter(e=>e.group===groupId);
+  const sum=g.reduce((a,e)=>a+e.grade,0);
+  const n=g.length;
+  return {n,sum,mean:n?sum/n:null};
+}
+function statusOfMean(mean){
+  if(mean===null) return 'none';
+  if(mean<4) return 'bad';
+  if(mean<4.3) return 'warn';
+  return 'ok';
+}
+// lowest grade the next test needs so the mean stays at 4.0 or more
+function neededNext(n,sum){
+  const x=4*(n+1)-sum;
+  return Math.round(x*100)/100;
+}
+function ekPreview(entries){
+  const inf=stats(entries,'inf'), uek=stats(entries,'uek');
+  if(!inf.n) return null;
+  const school=roundTo(inf.mean,0.5);
+  if(!uek.n) return {school,uek:null,total:null};
+  const u=roundTo(uek.mean,0.5);
+  return {school,uek:u,total:Math.round((0.8*school+0.2*u)*10)/10};
+}
+function pointsToGrade(p,max){ return 5*p/max+1; }
+function pointsNeeded(max,gradeThreshold){ return (gradeThreshold-1)/5*max; }
+// LOGIC END
+
+const KEY='noten-tracker-v2';
+let entries=DEFAULTS.map(e=>({...e}));
+try{
+  const saved=JSON.parse(localStorage.getItem(KEY)||'null');
+  if(Array.isArray(saved)) entries=saved.filter(e=>e&&typeof e.grade==='number'&&GROUPS.some(g=>g.id===e.group));
+}catch(err){}
+function save(){ try{localStorage.setItem(KEY,JSON.stringify(entries));}catch(err){} }
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const LABEL={ok:'4.0 or higher',warn:'Thin margin',bad:'Under 4.0',none:'No grades yet'};
+
+function renderCards(){
+  const promo=GROUPS.filter(g=>g.promo);
+  document.getElementById('cards').innerHTML=promo.map(g=>{
+    const s=stats(entries,g.id), st=statusOfMean(s.mean);
+    let need;
+    if(!s.n) need='Add a grade to start.';
+    else{
+      const x=neededNext(s.n,s.sum);
+      if(x<=1) need='Next test: <b>any grade</b> keeps you at 4.0 or higher.';
+      else if(x>6) need='Even a <b>6.0</b> on the next test is not enough alone.';
+      else need='Next test needs at least <b>'+x.toFixed(1)+'</b> to stay at 4.0 or higher.';
+    }
+    return '<article class="gcard s-'+st+'"><div class="gtop"><h3>'+g.name+'</h3><span class="pill">'+LABEL[st]+'</span></div>'
+      +'<div class="avg">'+(s.n?s.mean.toFixed(2):'–')+'</div>'
+      +'<div class="meta">'+s.n+' grade'+(s.n===1?'':'s')+(s.n?', rounds to '+roundTo(s.mean,0.5).toFixed(1):'')+'</div>'
+      +'<div class="need">'+need+'</div></article>';
+  }).join('');
+}
+
+function renderEk(){
+  const el=document.getElementById('ek-panel');
+  const ek=ekPreview(entries);
+  const sp=stats(entries,'sport'), up=stats(entries,'uek');
+  let body;
+  if(!ek) body='<p class="meta">Add Informatik grades to see this.</p>';
+  else if(ek.total===null) body='<p>School modules: <b class="num">'+ek.school.toFixed(1)+'</b>. Add an ÜK grade to see the combined note.</p>';
+  else body='<div class="result"><div><b>'+ek.school.toFixed(1)+'</b><span>School modules, 80%</span></div><div><b>'+ek.uek.toFixed(1)+'</b><span>ÜK, 20%</span></div><div><b>'+ek.total.toFixed(1)+'</b><span>Combined note</span></div></div>';
+  el.innerHTML='<h2>Informatik note with ÜK</h2><p class="meta">Federal rule: school modules count 80%, ÜK counts 20%, each averaged and rounded to a half grade first. A preview, since final notes use all semesters.</p>'+body
+    +(sp.n?'<p class="meta">Sport average: <span class="num">'+sp.mean.toFixed(2)+'</span>, not part of the promotion groups.</p>':'');
+}
+
+function renderEntries(){
+  document.getElementById('entries').innerHTML=GROUPS.map(g=>{
+    const list=entries.filter(e=>e.group===g.id);
+    if(!list.length) return '';
+    return '<div class="group"><h3><span>'+g.name+'</span></h3>'
+      +list.map(e=>'<div class="entry" data-id="'+e.id+'"><span class="nm">'+esc(e.name)+'</span>'
+        +'<input type="number" min="1" max="6" step="0.1" inputmode="decimal" aria-label="Grade for '+esc(e.name)+'" value="'+e.grade+'">'
+        +'<button class="del" type="button" aria-label="Delete '+esc(e.name)+'">×</button></div>').join('')
+      +'</div>';
+  }).join('')||'<p class="meta">No grades yet. Add one below.</p>';
+}
+
+function renderCalc(){
+  const p=parseFloat(document.getElementById('c-pts').value);
+  const max=parseFloat(document.getElementById('c-max').value);
+  const step=parseFloat(document.getElementById('c-round').value);
+  const out=document.getElementById('c-result');
+  if(!(max>0)||isNaN(p)||p<0){ out.innerHTML='<p class="meta">Enter your points and the maximum.</p>'; return; }
+  const raw=Math.min(6,pointsToGrade(p,max));
+  const thr=step===0.5?3.75:3.95;
+  const need=pointsNeeded(max,thr);
+  const diff=need-p;
+  out.innerHTML='<div><b>'+raw.toFixed(2)+'</b><span>Exact grade</span></div>'
+    +'<div><b>'+roundTo(raw,step).toFixed(step===0.5?1:1)+'</b><span>Rounded</span></div>'
+    +'<div><b>'+need.toFixed(1)+'</b><span>Points for a 4.0</span></div>'
+    +'<div><b>'+(diff>0?diff.toFixed(1)+' short':'passed')+'</b><span>'+(diff>0?'Missing for a 4.0':'Reaches a 4.0')+'</span></div>';
+}
+
+function renderAll(){ renderCards(); renderEk(); renderEntries(); save(); }
+
+const sel=document.getElementById('new-group');
+sel.innerHTML=GROUPS.map(g=>'<option value="'+g.id+'">'+g.name+'</option>').join('');
+
+document.getElementById('entries').addEventListener('change',e=>{
+  const inp=e.target.closest('input'); if(!inp) return;
+  const row=inp.closest('.entry'); const en=entries.find(x=>x.id===row.dataset.id);
+  let v=parseFloat(inp.value); if(isNaN(v)) v=en.grade;
+  en.grade=Math.min(6,Math.max(1,Math.round(v*10)/10));
+  renderAll();
+});
+document.getElementById('entries').addEventListener('click',e=>{
+  const b=e.target.closest('.del'); if(!b) return;
+  const id=b.closest('.entry').dataset.id;
+  entries=entries.filter(x=>x.id!==id);
+  renderAll();
+});
+document.getElementById('add-form').addEventListener('submit',e=>{
+  e.preventDefault();
+  const name=document.getElementById('new-name').value.trim();
+  let g=parseFloat(document.getElementById('new-grade').value);
+  if(!name||isNaN(g)) return;
+  g=Math.min(6,Math.max(1,Math.round(g*10)/10));
+  entries.push({id:'n'+Date.now()+Math.floor(Math.random()*1000),name,group:sel.value,grade:g});
+  document.getElementById('new-name').value=''; document.getElementById('new-grade').value='';
+  renderAll();
+});
+let clearArmed=false;
+document.getElementById('clear').addEventListener('click',e=>{
+  const b=e.currentTarget;
+  if(!clearArmed){ clearArmed=true; b.textContent='Tap again to delete all grades'; setTimeout(()=>{clearArmed=false;b.textContent='Clear all grades';},4000); return; }
+  clearArmed=false; b.textContent='Clear all grades'; entries=[]; renderAll();
+});
+['c-pts','c-max','c-round'].forEach(id=>document.getElementById(id).addEventListener('input',renderCalc));
+
+renderAll(); renderCalc();
+</script>
+</body>
+</html>
