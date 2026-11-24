@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Absence Limit Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* Direction: calm utilitarian tracker, teal accent, semantic red/amber/green only for status. Cards in a responsive grid, summary first. */
+:root{
+  --bg:#0b1211; --surface:#141d1b; --ink:#e7efec; --muted:#9bb0aa; --line:#26352f;
+  --accent:#2dd4bf; --accent-ink:#06201c;
+  --ok:#5fd382; --ok-bg:#16301f; --warn:#f0b64e; --warn-bg:#3a2b0e; --bad:#ff8a80; --bad-bg:#40191a;
+  --track:#22302c;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --bg:#f3f6f5; --surface:#ffffff; --ink:#14201d; --muted:#586763; --line:#d7e0dd;
+  --accent:#0f766e; --accent-ink:#ffffff;
+  --ok:#15803d; --ok-bg:#e4f3e8; --warn:#9a5b06; --warn-bg:#fcefd2; --bad:#b4231f; --bad-bg:#fbe4e2;
+  --track:#e6ecea; color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);line-height:1.45;padding:20px 16px 48px}
+main{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+h1{font-size:1.55rem;line-height:1.2;margin:0;text-wrap:balance}
+h2{font-size:1.05rem;margin:0;text-wrap:balance}
+h3{font-size:1rem;margin:0}
+p{margin:0}
+.sub{color:var(--muted);font-size:.92rem;margin-top:6px;max-width:62ch}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+.summary{background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.summary.s-low,.summary.s-edge{border-left-color:var(--warn)}
+.summary.s-over{border-left-color:var(--bad)}
+.summary .kicker{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.summary .headline{font-size:1.35rem;font-weight:700;text-wrap:balance}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-size:.82rem;padding:3px 10px;border-radius:999px;background:var(--track);color:var(--ink)}
+.chip.bad{background:var(--bad-bg);color:var(--bad)}
+.chip.warn{background:var(--warn-bg);color:var(--warn)}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card.s-over{border-color:var(--bad)}
+.card.s-edge,.card.s-low{border-color:var(--warn)}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.day{font-size:.78rem;color:var(--muted);margin-left:6px}
+.pill{font-size:.74rem;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.s-ok .pill{background:var(--ok-bg);color:var(--ok)}
+.s-low .pill,.s-edge .pill{background:var(--warn-bg);color:var(--warn)}
+.s-over .pill{background:var(--bad-bg);color:var(--bad)}
+.big{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.big b{font-family:var(--font-mono);font-size:1.9rem;line-height:1}
+.s-ok .big b{color:var(--ok)} .s-low .big b,.s-edge .big b{color:var(--warn)} .s-over .big b{color:var(--bad)}
+.big span{font-size:.85rem;color:var(--muted)}
+.bar{position:relative;height:10px;background:var(--track);border-radius:6px;overflow:visible}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--ok);transition:width .25s}
+.s-low .bar i,.s-edge .bar i{background:var(--warn)} .s-over .bar i{background:var(--bad)}
+.bar u{position:absolute;left:80%;top:-4px;bottom:-4px;width:2px;background:var(--ink);opacity:.7}
+.meta{font-size:.82rem;color:var(--muted)}
+.note-own{font-size:.78rem;color:var(--muted)}
+.ctl{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap}
+.ctl label{display:flex;flex-direction:column;gap:2px;font-size:.74rem;color:var(--muted)}
+input[type=number]{width:64px;padding:7px 6px;font:inherit;font-family:var(--font-mono);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px}
+button{font:inherit;cursor:pointer}
+.step{width:40px;height:38px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:1.2rem;line-height:1}
+.step:hover{border-color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.days{display:flex;flex-wrap:wrap;gap:8px}
+.day-btn{padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-weight:600;min-width:64px}
+.day-btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.preview{display:flex;flex-direction:column;gap:6px}
+.prow{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;background:var(--bg);font-size:.92rem;flex-wrap:wrap}
+.prow.bad{background:var(--bad-bg);color:var(--bad)}
+.prow.warn{background:var(--warn-bg);color:var(--warn)}
+.prow .tag{font-weight:600}
+.primary{padding:10px 14px;border-radius:8px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:600;align-self:flex-start}
+.ghost{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--ink)}
+.dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px}
+.dl div{background:var(--bg);border-radius:8px;padding:10px;text-align:center}
+.dl b{display:block;font-family:var(--font-mono);font-size:1.4rem}
+.dl span{font-size:.78rem;color:var(--muted)}
+.dl .z b{color:var(--bad)}
+.foot{font-size:.84rem;color:var(--muted);display:flex;flex-direction:column;gap:6px;max-width:72ch}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media (prefers-reduced-motion: reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Absence limit tracker</h1>
+    <p class="sub">Semester 1, IT1a, 17 Aug to 12 Feb. Missing more than 20% of a subject's lessons gives a 1.0 in that subject. Excused absences count too, and so does arriving late.</p>
+  </header>
+
+  <section class="summary" id="summary" aria-live="polite"></section>
+
+  <section>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="whatif-h">
+    <h2 id="whatif-h">What if I miss a whole day?</h2>
+    <div class="days" id="days" role="group" aria-label="Pick a weekday"></div>
+    <div class="preview" id="preview"></div>
+    <div class="row-actions" id="preview-actions"></div>
+    <div>
+      <h3 style="margin-bottom:8px">Whole days you can still miss</h3>
+      <div class="dl" id="daysleft"></div>
+      <p class="meta" style="margin-top:8px">The tightest subject of that day decides. ÜK 187 has its own rules and is left out here.</p>
+    </div>
+  </section>
+
+  <section class="foot">
+    <p><b>How it counts:</b> lessons you can still miss = 20% of the semester total, rounded down, minus what you already missed. The first lesson after that gives the 1.0.</p>
+    <p><b>Check these:</b> lesson totals come from the timetable (ABU 84, Modul 117 66). If the school counts differently, for example ABU at 60, change the Total box. All absences start at 0, so enter the numbers from your Absenzenblatt.</p>
+    <div class="row-actions"><button class="ghost" id="reset" type="button">Reset to starting numbers</button></div>
+  </section>
+</main>
+
+<script>
+// LOGIC START
+const DEFAULTS=[
+  {id:'abu',name:'ABU',day:'Fr',total:84,abs:0},
+  {id:'mat',name:'Mathematik',day:'Fr',total:42,abs:0},
+  {id:'m260',name:'Modul 260',day:'Mo',total:42,abs:0},
+  {id:'m431',name:'Modul 431',day:'Mo',total:42,abs:0},
+  {id:'m162',name:'Modul 162',day:'Mo',total:42,abs:0},
+  {id:'eng',name:'Englisch',day:'Di',total:44,abs:0},
+  {id:'m316',name:'Modul 316',day:'Di',total:44,abs:0},
+  {id:'m117',name:'Modul 117',day:'Mi',total:66,abs:0},
+  {id:'m319',name:'Modul 319',day:'Do',total:44,abs:0},
+  {id:'uek',name:'ÜK 187',day:'Do',total:44,abs:0,own:true}
+];
+const DAYS={
+  Mo:{m260:2,m431:2,m162:2},
+  Di:{eng:2,m316:2},
+  Mi:{m117:3},
+  Do:{uek:2,m319:2},
+  Fr:{abu:4,mat:2}
+};
+const DAYNAMES={Mo:'Mon',Di:'Tue',Mi:'Wed',Do:'Thu',Fr:'Fri'};
+function limitOf(total){ return Math.floor(total*0.2+1e-9); }
+function remainingOf(s){ return limitOf(s.total)-s.abs; }
+function statusOf(s){
+  const rem=remainingOf(s);
+  if(rem<0) return 'over';
+  if(rem===0) return 'edge';
+  if(rem<=2) return 'low';
+  return 'ok';
+}
+function pctOf(s){ return s.total>0 ? s.abs/s.total*100 : 0; }
+function fullDaysLeft(subjects,day){
+  let best=Infinity;
+  for(const [id,lessons] of Object.entries(DAYS[day])){
+    const s=subjects.find(x=>x.id===id);
+    if(!s||s.own) continue;
+    const rem=remainingOf(s);
+    best=Math.min(best, rem<0?0:Math.floor(rem/lessons));
+  }
+  return best===Infinity?0:best;
+}
+// LOGIC END
+
+const KEY='absenzen-tracker-v2';
+let subjects=DEFAULTS.map(s=>({...s}));
+try{
+  const saved=JSON.parse(localStorage.getItem(KEY)||'null');
+  if(Array.isArray(saved)){
+    subjects=subjects.map(s=>{const m=saved.find(x=>x.id===s.id);return m?{...s,total:m.total,abs:m.abs}:s;});
+  }
+}catch(e){}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(subjects.map(({id,total,abs})=>({id,total,abs}))));}catch(e){}
+}
+
+const LABELS={ok:'OK',low:'Low margin',edge:'No margin',over:'Over, grade 1.0'};
+let selectedDay=null;
+let resetArmed=false;
+
+function renderSummary(){
+  const el=document.getElementById('summary');
+  const over=subjects.filter(s=>statusOf(s)==='over');
+  const edge=subjects.filter(s=>statusOf(s)==='edge');
+  const low=subjects.filter(s=>statusOf(s)==='low');
+  const tight=subjects.slice().sort((a,b)=>remainingOf(a)-remainingOf(b))[0];
+  const rem=remainingOf(tight);
+  const st=statusOf(tight);
+  let head;
+  if(over.length) head=over.map(s=>s.name).join(', ')+' over the limit';
+  else if(rem===0) head=tight.name+': 0 lessons left, no margin';
+  else head=tight.name+': '+rem+' lessons left';
+  el.className='summary s-'+st;
+  const chips=[];
+  if(over.length) chips.push('<span class="chip bad">'+over.length+' over</span>');
+  if(edge.length) chips.push('<span class="chip warn">'+edge.length+' with no margin</span>');
+  if(low.length) chips.push('<span class="chip warn">'+low.length+' low</span>');
+  const okc=subjects.length-over.length-edge.length-low.length;
+  chips.push('<span class="chip ok">'+okc+' fine</span>');
+  el.innerHTML='<span class="kicker">Tightest subject</span><span class="headline">'+head+'</span><div class="chips">'+chips.join('')+'</div>';
+}
+
+function renderCards(){
+  const g=document.getElementById('grid');
+  g.innerHTML=subjects.map(s=>{
+    const st=statusOf(s), rem=remainingOf(s), lim=limitOf(s.total), pct=pctOf(s);
+    const width=Math.min(100,pct/25*100);
+    const big=rem>=0?rem:-rem;
+    const cap=rem>=0?'lessons left before 20%':'lessons over the limit';
+    return '<article class="card s-'+st+'" data-id="'+s.id+'">'
+      +'<div class="top"><div><h3 style="display:inline">'+s.name+'</h3><span class="day">'+s.day+'</span></div><span class="pill">'+LABELS[st]+'</span></div>'
+      +'<div class="big"><b>'+big+'</b><span>'+cap+'</span></div>'
+      +'<div class="bar" aria-hidden="true"><i style="width:'+width+'%"></i><u></u></div>'
+      +'<div class="meta num">'+s.abs+' of '+s.total+' missed, '+pct.toFixed(1)+'%, limit '+lim+'</div>'
+      +(s.own?'<div class="note-own">ÜK may follow its own absence rules. Shown for reference.</div>':'')
+      +'<div class="ctl">'
+      +'<button class="step" type="button" data-act="dec" aria-label="One less missed lesson in '+s.name+'">−</button>'
+      +'<label>Missed<input type="number" min="0" step="1" inputmode="numeric" id="abs-'+s.id+'" data-field="abs" value="'+s.abs+'"></label>'
+      +'<button class="step" type="button" data-act="inc" aria-label="One more missed lesson in '+s.name+'">+</button>'
+      +'<label>Total<input type="number" min="1" step="1" inputmode="numeric" id="tot-'+s.id+'" data-field="total" value="'+s.total+'"></label>'
+      +'</div></article>';
+  }).join('');
+}
+
+function renderWhatIf(){
+  const dayBox=document.getElementById('days');
+  dayBox.innerHTML=Object.keys(DAYS).map(d=>'<button class="day-btn" type="button" data-day="'+d+'" aria-pressed="'+(selectedDay===d)+'">'+DAYNAMES[d]+'</button>').join('');
+  const pv=document.getElementById('preview');
+  const act=document.getElementById('preview-actions');
+  if(!selectedDay){
+    pv.innerHTML='<p class="meta">Pick a day to see what it would do to your limits.</p>';
+    act.innerHTML='';
+  }else{
+    pv.innerHTML=Object.entries(DAYS[selectedDay]).map(([id,lessons])=>{
+      const s=subjects.find(x=>x.id===id);
+      const after={...s,abs:s.abs+lessons};
+      const st=statusOf(after), rem=remainingOf(after);
+      const cls=st==='over'?'bad':(st==='edge'||st==='low')?'warn':'';
+      const txt=rem<0?'over by '+(-rem)+', grade 1.0':rem+' left';
+      return '<div class="prow '+cls+'"><span>'+s.name+' <span class="num">+'+lessons+'</span></span><span class="num">'+s.abs+' → '+after.abs+' of limit '+limitOf(s.total)+' <span class="tag">'+txt+'</span></span></div>';
+    }).join('');
+    act.innerHTML='<button class="primary" type="button" id="add-day">I missed this day: add it</button><button class="ghost" type="button" id="clear-day">Cancel</button>';
+  }
+  document.getElementById('daysleft').innerHTML=Object.keys(DAYS).map(d=>{
+    const n=fullDaysLeft(subjects,d);
+    return '<div class="'+(n===0?'z':'')+'"><b>'+n+'</b><span>'+DAYNAMES[d]+'</span></div>';
+  }).join('');
+}
+
+function renderAll(){ renderSummary(); renderCards(); renderWhatIf(); save(); }
+
+document.getElementById('grid').addEventListener('click',e=>{
+  const btn=e.target.closest('button[data-act]'); if(!btn) return;
+  const id=btn.closest('.card').dataset.id;
+  const s=subjects.find(x=>x.id===id);
+  s.abs=Math.max(0,s.abs+(btn.dataset.act==='inc'?1:-1));
+  renderAll();
+  const again=document.querySelector('[data-id="'+id+'"] [data-act="'+btn.dataset.act+'"]');
+  if(again) again.focus();
+});
+document.getElementById('grid').addEventListener('change',e=>{
+  const inp=e.target.closest('input[data-field]'); if(!inp) return;
+  const id=inp.closest('.card').dataset.id;
+  const s=subjects.find(x=>x.id===id);
+  let v=parseInt(inp.value,10); if(isNaN(v)) v=0;
+  if(inp.dataset.field==='total') v=Math.max(1,v); else v=Math.max(0,v);
+  s[inp.dataset.field]=v;
+  renderAll();
+});
+document.getElementById('days').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-day]'); if(!b) return;
+  selectedDay=selectedDay===b.dataset.day?null:b.dataset.day;
+  renderWhatIf();
+});
+document.getElementById('preview-actions').addEventListener('click',e=>{
+  if(e.target.id==='clear-day'){ selectedDay=null; renderWhatIf(); }
+  if(e.target.id==='add-day'){
+    for(const [id,lessons] of Object.entries(DAYS[selectedDay])){
+      const s=subjects.find(x=>x.id===id); s.abs+=lessons;
+    }
+    selectedDay=null; renderAll();
+  }
+});
+document.getElementById('reset').addEventListener('click',e=>{
+  const b=e.currentTarget;
+  if(!resetArmed){ resetArmed=true; b.textContent='Tap again to reset everything'; setTimeout(()=>{resetArmed=false;b.textContent='Reset to starting numbers';},4000); return; }
+  resetArmed=false; b.textContent='Reset to starting numbers';
+  subjects=DEFAULTS.map(s=>({...s})); selectedDay=null; renderAll();
+});
+
+renderAll();
+</script>
+</body>
+</html>
