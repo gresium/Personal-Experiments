@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Am I a Bad Person?</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inconsolata:wght@300;400;500;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0e0c0a;
+  --surface: #161410;
+  --card: #1c1916;
+  --border: #2e2a25;
+  --border2: #3d3830;
+  --cream: #e8dfc8;
+  --warm: #c9b99a;
+  --muted: #6e6456;
+  --ember: #d4622a;
+  --ember2: #e8843a;
+  --green: #4a8c5c;
+  --gold: #c4953a;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inconsolata', monospace;
+  background: var(--bg);
+  color: var(--cream);
+  min-height: 100vh;
+  padding: 0 0 80px;
+}
+
+/* flickering top line */
+.top-line {
+  height: 3px;
+  background: linear-gradient(90deg, var(--ember), var(--gold), var(--ember2));
+  animation: flicker 4s ease-in-out infinite;
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+  75% { opacity: 0.9; }
+}
+
+.wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 56px 24px;
+}
+
+/* HEADER */
+header {
+  margin-bottom: 56px;
+  animation: rise 0.7s ease both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.label {
+  font-size: 10px;
+  letter-spacing: 0.35em;
+  color: var(--ember);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  display: block;
+}
+
+h1 {
+  font-family: 'Instrument Serif', serif;
+  font-size: clamp(2.8rem, 8vw, 4.5rem);
+  line-height: 1.05;
+  font-weight: 400;
+  color: var(--cream);
+  margin-bottom: 8px;
+}
+
+h1 em {
+  font-style: italic;
+  color: var(--ember2);
+}
+
+.subhead {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.8;
+  margin-top: 20px;
+  max-width: 480px;
+  border-left: 2px solid var(--border2);
+  padding-left: 16px;
+}
+
+/* SECTION HEADER */
+.section-label {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* QUESTIONS */
+.q-group {
+  margin-bottom: 40px;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: rise 0.5s ease forwards;
+}
+
+.q-group:nth-child(1) { animation-delay: 0.1s; }
+.q-group:nth-child(2) { animation-delay: 0.18s; }
+.q-group:nth-child(3) { animation-delay: 0.26s; }
+.q-group:nth-child(4) { animation-delay: 0.34s; }
+.q-group:nth-child(5) { animation-delay: 0.42s; }
+
+.q-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 24px 28px 20px;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.q-n {
+  font-size: 10px;
+  color: var(--ember);
+  letter-spacing: 0.2em;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.q-text {
+  font-family: 'Instrument Serif', serif;
+  font-size: 1.12rem;
+  line-height: 1.55;
+  color: var(--cream);
+  font-style: italic;
+  margin-bottom: 20px;
+}
+
+.answers {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.ans {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'Inconsolata', monospace;
+  font-size: 11px;
+  padding: 10px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.18s;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+}
+
+.ans:hover {
+  border-color: var(--border2);
+  color: var(--warm);
+  background: rgba(255,255,255,0.02);
+}
+
+.ans.picked-good {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(74,140,92,0.08);
+}
+
+.ans.picked-bad {
+  border-color: var(--ember);
+  color: var(--ember2);
+  background: rgba(212,98,42,0.08);
+}
+
+.ans.picked-grey {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(196,149,58,0.08);
+}
+
+/* PROGRESS */
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 40px;
+  animation: rise 0.5s 0.05s ease both;
+}
+
+.progress-track {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ember), var(--gold));
+  transition: width 0.4s ease;
+  border-radius: 2px;
+}
+
+.progress-txt {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.15em;
+  white-space: nowrap;
+}
+
+/* SUBMIT */
+.submit-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  font-family: 'Inconsolata', monospace;
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  padding: 16px;
+  cursor: not-allowed;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+.submit-btn.ready {
+  border-color: var(--ember);
+  color: var(--ember2);
+  cursor: pointer;
+}
+
+.submit-btn.ready:hover {
+  background: var(--ember);
+  color: var(--bg);
+}
+
+/* RESULT */
+#result {
+  display: none;
+  animation: rise 0.6s ease both;
+}
+
+#result.show { display: block; }
+
+.verdict-wrap {
+  border: 1px solid var(--border2);
+  background: var(--card);
+  padding: 40px 36px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.verdict-wrap::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+
+.verdict-wrap.result-good::before { background: var(--green); }
+.verdict-wrap.result-mid::before  { background: var(--gold); }
+.verdict-wrap.result-bad::before  { background: var(--ember); }
+
+.verdict-icon {
+  font-size: 2.8rem;
+  margin-bottom: 20px;
+  display: block;
+}
+
+.verdict-heading {
+  font-family: 'Instrument Serif', serif;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+
+.verdict-sub {
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.verdict-sub.result-good { color: var(--green); }
+.verdict-sub.result-mid  { color: var(--gold); }
+.verdict-sub.result-bad  { color: var(--ember); }
+
+.verdict-body {
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--warm);
+}
+
+/* SCORE BARS */
+.score-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 28px 32px;
+  margin-bottom: 16px;
+}
+
+.score-section h3 {
+  font-family: 'Instrument Serif', serif;
+  font-size: 1.1rem;
+  font-style: italic;
+  margin-bottom: 20px;
+  color: var(--warm);
+}
+
+.dim-row {
+  margin-bottom: 16px;
+}
+
+.dim-row-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.dim-track {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.dim-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 1s ease;
+}
+
+/* REFLECTIONS */
+.reflections {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 28px 32px;
+  margin-bottom: 16px;
+}
+
+.reflections h3 {
+  font-family: 'Instrument Serif', serif;
+  font-size: 1.1rem;
+  font-style: italic;
+  margin-bottom: 20px;
+  color: var(--warm);
+}
+
+.ref-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.ref-item:last-child { border-bottom: none; }
+
+.ref-bullet {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 7px;
+}
+
+.ref-text {
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+
+/* RESET */
+.reset-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'Inconsolata', monospace;
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  padding: 12px 28px;
+  cursor: pointer;
+  transition: all 0.18s;
+  display: block;
+  margin-top: 24px;
+}
+
+.reset-btn:hover {
+  border-color: var(--muted);
+  color: var(--warm);
+}
+</style>
+</head>
+<body>
+<div class="top-line"></div>
+<div class="wrap">
+
+  <header>
+    <span class="label">The Moral Mirror</span>
+    <h1>Am I a<br><em>bad person?</em></h1>
+    <p class="subhead">The question most people are afraid to ask honestly. No guilt-tripping, no preaching. Just a mirror — and a real answer.</p>
+  </header>
+
+  <div id="quiz">
+    <div class="progress-row">
+      <div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="progress-txt" id="prog-txt">0 / 10</div>
+    </div>
+
+    <div id="q-list"></div>
+
+    <button class="submit-btn" id="submit-btn" onclick="showResult()">→ &nbsp; REVEAL THE VERDICT</button>
+  </div>
+
+  <div id="result">
+    <div class="section-label" style="margin-bottom:20px">Your Verdict</div>
+    <div class="verdict-wrap" id="verdict-wrap">
+      <span class="verdict-icon" id="v-icon"></span>
+      <div class="verdict-heading" id="v-heading"></div>
+      <div class="verdict-sub" id="v-sub"></div>
+      <div class="verdict-body" id="v-body"></div>
+    </div>
+
+    <div class="score-section">
+      <h3>Where you actually stand</h3>
+      <div id="dim-bars"></div>
+    </div>
+
+    <div class="reflections">
+      <h3>What this means for you</h3>
+      <div id="ref-list"></div>
+    </div>
+
+    <button class="reset-btn" onclick="resetAll()">↺ &nbsp; Start over</button>
+  </div>
+
+</div>
+
+<script>
+const questions = [
+  {
+    text: "When you hurt someone — even accidentally — what do you usually do?",
+    dim: "empathy",
+    options: [
+      { text: "Apologize and genuinely try to understand their hurt", val: 2 },
+      { text: "Acknowledge it, but get defensive about my intentions", val: 1 },
+      { text: "Wait for it to blow over without addressing it", val: 0 },
+      { text: "Decide they're being too sensitive", val: -1 },
+    ]
+  },
+  {
+    text: "Do you treat people differently based on what they can do for you?",
+    dim: "integrity",
+    options: [
+      { text: "I try hard not to, and I catch myself when I do", val: 2 },
+      { text: "Probably sometimes, if I'm honest", val: 1 },
+      { text: "Yes, but everyone does that — it's just realistic", val: 0 },
+      { text: "Absolutely. People earn their treatment.", val: -1 },
+    ]
+  },
+  {
+    text: "Think of someone who wronged you. What do you want for them?",
+    dim: "empathy",
+    options: [
+      { text: "For them to understand what they did and grow from it", val: 2 },
+      { text: "Nothing — I've let it go", val: 2 },
+      { text: "I still feel the sting but I'm working on it", val: 1 },
+      { text: "Honestly? For something bad to happen to them", val: -1 },
+    ]
+  },
+  {
+    text: "When was the last time you did something kind with no benefit to yourself?",
+    dim: "goodness",
+    options: [
+      { text: "Recently — it's something I do without thinking", val: 2 },
+      { text: "A while ago, but I can think of a real example", val: 1 },
+      { text: "Honestly it's hard to think of one", val: 0 },
+      { text: "I don't really do that — what's the point?", val: -1 },
+    ]
+  },
+  {
+    text: "How honest are you — really?",
+    dim: "integrity",
+    options: [
+      { text: "I try to be honest even when it's uncomfortable", val: 2 },
+      { text: "Honest about big things, but I bend small truths", val: 1 },
+      { text: "I say what people want to hear more than I should", val: 0 },
+      { text: "I lie when it's useful and I'm fine with that", val: -1 },
+    ]
+  },
+  {
+    text: "When you reflect on your past behavior toward people you care about...",
+    dim: "growth",
+    options: [
+      { text: "I see mistakes I've made and I've worked to change them", val: 2 },
+      { text: "I see patterns I don't love but I'm trying", val: 1 },
+      { text: "I feel some guilt but haven't really changed anything", val: 0 },
+      { text: "I don't think about it much — what's done is done", val: -1 },
+    ]
+  },
+  {
+    text: "When a friend is struggling and it's inconvenient for you, what do you do?",
+    dim: "goodness",
+    options: [
+      { text: "Show up anyway — that's what friendship means", val: 2 },
+      { text: "Try to help but sometimes I don't show up as much as I should", val: 1 },
+      { text: "Send a message but avoid the deeper effort", val: 0 },
+      { text: "People need to handle their own stuff", val: -1 },
+    ]
+  },
+  {
+    text: "When you're in the wrong in an argument, what happens?",
+    dim: "growth",
+    options: [
+      { text: "I admit it, even if it's uncomfortable", val: 2 },
+      { text: "I usually come around eventually, but not right away", val: 1 },
+      { text: "I change the subject or go quiet", val: 0 },
+      { text: "I double down — losing the argument feels worse than being wrong", val: -1 },
+    ]
+  },
+  {
+    text: "Do you ever deliberately make someone feel small or embarrassed?",
+    dim: "empathy",
+    options: [
+      { text: "No — that genuinely bothers me to do", val: 2 },
+      { text: "Not deliberately, but sometimes I say cutting things", val: 1 },
+      { text: "Occasionally, but only to people who 'deserve it'", val: 0 },
+      { text: "Yes, sometimes — and it feels satisfying in the moment", val: -1 },
+    ]
+  },
+  {
+    text: "Why are you taking this quiz right now?",
+    dim: "growth",
+    options: [
+      { text: "Because I genuinely want to be a better person", val: 2 },
+      { text: "Curiosity, but the answer does matter to me", val: 2 },
+      { text: "I had a situation and I'm wondering if I was wrong", val: 1 },
+      { text: "To confirm I'm not the problem", val: 0 },
+    ]
+  }
+];
+
+const dims = {
+  empathy: { label: 'Empathy', scores: [], color: '#7a9ebf' },
+  integrity: { label: 'Integrity', scores: [], color: '#c4953a' },
+  goodness: { label: 'Everyday Goodness', scores: [], color: '#4a8c5c' },
+  growth: { label: 'Self-Awareness & Growth', scores: [], color: '#a06abf' },
+};
+
+let answers = new Array(questions.length).fill(null);
+
+function buildQuiz() {
+  const list = document.getElementById('q-list');
+  questions.forEach((q, i) => {
+    const g = document.createElement('div');
+    g.className = 'q-group';
+    g.innerHTML = `
+      <div class="q-card">
+        <span class="q-n">— ${String(i+1).padStart(2,'0')} / ${questions.length}</span>
+        <div class="q-text">${q.text}</div>
+        <div class="answers" id="a-${i}">
+          ${q.options.map((o, j) => `
+            <button class="ans" onclick="pick(${i}, ${j}, ${o.val}, '${o.val >= 1 ? 'good' : o.val === 0 ? 'grey' : 'bad'}', this)">${o.text}</button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    list.appendChild(g);
+  });
+}
+
+function pick(qIdx, optIdx, val, tone, btn) {
+  answers[qIdx] = { val, dim: questions[qIdx].dim };
+  document.querySelectorAll(`#a-${qIdx} .ans`).forEach(b => {
+    b.className = 'ans';
+  });
+  btn.classList.add('picked-' + tone);
+  updateProgress();
+}
+
+function updateProgress() {
+  const done = answers.filter(a => a !== null).length;
+  const pct = (done / questions.length) * 100;
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-txt').textContent = `${done} / ${questions.length}`;
+  const btn = document.getElementById('submit-btn');
+  btn.classList.toggle('ready', done === questions.length);
+}
+
+function showResult() {
+  // Tally
+  Object.keys(dims).forEach(d => dims[d].scores = []);
+  let total = 0;
+  answers.forEach(a => {
+    if (a) {
+      dims[a.dim].scores.push(a.val);
+      total += a.val;
+    }
+  });
+
+  const max = questions.length * 2;
+  const min = questions.length * -1;
+  const normalized = Math.round(((total - min) / (max - min)) * 100);
+
+  // Verdict
+  let vClass, icon, heading, sub, body, refs;
+
+  if (normalized >= 72) {
+    vClass = 'result-good';
+    icon = '';
+    heading = "No. You're not a bad person.";
+    sub = 'You show up with care and conscience';
+    body = "Your answers reflect someone who thinks about how their actions affect others, owns their mistakes, and genuinely tries to be good — not perfect, but good. That combination is rarer than you'd think.\n\nThe very fact that you're asking this question, and sitting with it honestly, is itself the answer. Bad people rarely wonder if they're bad.";
+    refs = [
+      { color: '#4a8c5c', text: "Your empathy and integrity scores suggest you genuinely care about your impact on others — not just how things look." },
+      { color: '#c4953a', text: "Keep watching for the moments where it's easier to look away. That's where character is actually built." },
+      { color: '#a06abf', text: "The fact you're still growing and reflecting matters more than whether you've been perfect." },
+    ];
+  } else if (normalized >= 45) {
+    vClass = 'result-mid';
+    icon = '';
+    heading = "Mostly good — but with real blind spots.";
+    sub = 'Worth looking at more honestly';
+    body = "You're not a bad person. But your answers reveal some patterns that, left unexamined, could cause real harm to people around you — or already have.\n\nThis isn't about self-punishment. It's about noticing the gaps between who you want to be and what you actually do in difficult moments. Those gaps are where the real work is.";
+    refs = [
+      { color: '#c4953a', text: "Look at the questions where you scored low. They're not random — they're likely the exact areas where people in your life have felt let down by you." },
+      { color: '#4a8c5c', text: "You have genuine goodness in you. The work is making sure it shows up consistently, not just when it's convenient." },
+      { color: '#a06abf', text: "Self-awareness without action is just guilt. Pick one behavior you want to change and make it specific." },
+    ];
+  } else {
+    vClass = 'result-bad';
+    icon = '';
+    heading = "Your answers are a red flag.";
+    sub = 'Not a verdict — a wake-up call';
+    body = "This isn't a comfortable result, but you came here for honesty. Your answers suggest patterns of behavior that likely hurt people — maybe people you care about.\n\nHere's what matters: you're here, asking the question. That means some part of you knows something needs to change. That part is the most important thing about you right now. Listen to it.";
+    refs = [
+      { color: '#d4622a', text: "The patterns you're showing — dismissing others' feelings, avoiding accountability, acting from self-interest — these create real damage in relationships over time." },
+      { color: '#c4953a', text: "Talking to a therapist isn't a sign of weakness. It's the most direct path to understanding why you behave the way you do and changing it." },
+      { color: '#4a8c5c', text: "Bad behavior is not the same as being a bad person permanently. People change — but only when they decide to, and only with real effort." },
+    ];
+  }
+
+  // Render verdict
+  const vw = document.getElementById('verdict-wrap');
+  vw.className = 'verdict-wrap ' + vClass;
+  document.getElementById('v-icon').textContent = icon;
+  document.getElementById('v-heading').textContent = heading;
+  const vs = document.getElementById('v-sub');
+  vs.textContent = sub;
+  vs.className = 'verdict-sub ' + vClass;
+  document.getElementById('v-body').innerHTML = body.replace(/\n\n/g, '<br><br>');
+
+  // Dim bars
+  const barsEl = document.getElementById('dim-bars');
+  barsEl.innerHTML = Object.entries(dims).map(([key, d]) => {
+    const avg = d.scores.length ? d.scores.reduce((a,b) => a+b, 0) / d.scores.length : 0;
+    const pct = Math.round(((avg + 1) / 3) * 100);
+    const label = pct >= 66 ? 'Strong' : pct >= 40 ? 'Mixed' : 'Needs attention';
+    return `
+      <div class="dim-row">
+        <div class="dim-row-top"><span>${d.label}</span><span style="color:${d.color}">${label}</span></div>
+        <div class="dim-track"><div class="dim-fill" style="width:${pct}%; background:${d.color};"></div></div>
+      </div>
+    `;
+  }).join('');
+
+  // Reflections
+  document.getElementById('ref-list').innerHTML = refs.map(r => `
+    <div class="ref-item">
+      <div class="ref-bullet" style="background:${r.color}"></div>
+      <div class="ref-text">${r.text}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('quiz').style.display = 'none';
+  const res = document.getElementById('result');
+  res.classList.add('show');
+  setTimeout(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, 100);
+}
+
+function resetAll() {
+  answers = new Array(questions.length).fill(null);
+  document.getElementById('q-list').innerHTML = '';
+  buildQuiz();
+  document.getElementById('quiz').style.display = 'block';
+  document.getElementById('result').classList.remove('show');
+  document.getElementById('prog-fill').style.width = '0%';
+  document.getElementById('prog-txt').textContent = '0 / 10';
+  document.getElementById('submit-btn').classList.remove('ready');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+buildQuiz();
+</script>
+</body>
+</html>

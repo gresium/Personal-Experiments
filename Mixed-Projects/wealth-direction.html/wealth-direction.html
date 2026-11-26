@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Am I Going the Right Direction?</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f0e8;
+  --ink: #1a1612;
+  --gold: #b8860b;
+  --gold-light: #d4a017;
+  --red: #c0392b;
+  --green: #1d6a3a;
+  --mid: #6b6357;
+  --rule: #d4cfc6;
+  --paper: #ede8de;
+  --stamp: rgba(192,57,43,0.12);
+}
+
+body {
+  font-family: 'Barlow', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  padding: 0;
+  position: relative;
+}
+
+/* Grain overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0.5;
+}
+
+.page {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 60px 32px 100px;
+}
+
+/* HEADER */
+.masthead {
+  border-top: 4px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  padding: 20px 0 16px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.masthead-left {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  color: var(--mid);
+}
+
+.masthead-date {
+  font-size: 10px;
+  color: var(--mid);
+  font-style: italic;
+}
+
+h1.headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3rem, 8vw, 5.5rem);
+  line-height: 0.92;
+  letter-spacing: 0.01em;
+  margin: 24px 0 6px;
+  color: var(--ink);
+}
+
+.deck {
+  font-family: 'Barlow', sans-serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 1.05rem;
+  color: var(--mid);
+  border-left: 3px solid var(--gold);
+  padding-left: 16px;
+  margin-bottom: 32px;
+  line-height: 1.6;
+}
+
+.rule { height: 1px; background: var(--rule); margin: 24px 0; }
+.rule.thick { height: 2px; background: var(--ink); }
+
+/* INTRO */
+.intro-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 560px) { .intro-grid { grid-template-columns: 1fr; } }
+
+.intro-stat {
+  border: 1px solid var(--rule);
+  padding: 20px;
+  background: var(--paper);
+  position: relative;
+}
+
+.intro-stat-number {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3rem;
+  color: var(--gold);
+  line-height: 1;
+}
+
+.intro-stat-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mid);
+  margin-top: 4px;
+}
+
+/* DIMENSIONS */
+.dimensions-nav {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 0;
+  flex-wrap: wrap;
+}
+
+.dim-tab {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--mid);
+  cursor: pointer;
+  transition: all 0.15s;
+  border-bottom: none;
+}
+
+.dim-tab:hover { background: var(--paper); color: var(--ink); }
+.dim-tab.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.dim-content {
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  padding: 28px;
+  display: none;
+  animation: fadeIn 0.25s ease;
+}
+
+.dim-content.active { display: block; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.dim-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dim-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.6rem;
+  letter-spacing: 0.05em;
+}
+
+.dim-score-display {
+  text-align: right;
+}
+
+.dim-score-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.4rem;
+  line-height: 1;
+  color: var(--gold);
+}
+
+.dim-score-label {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--mid);
+  text-transform: uppercase;
+}
+
+.dim-desc {
+  font-style: italic;
+  font-size: 0.88rem;
+  color: var(--mid);
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* CHECKLIST */
+.check-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  border-radius: 2px;
+  user-select: none;
+}
+
+.check-item:hover { background: rgba(26,22,18,0.04); border-color: var(--rule); }
+
+.check-item.checked { background: rgba(29,106,58,0.07); border-color: rgba(29,106,58,0.25); }
+.check-item.checked .check-box { background: var(--green); border-color: var(--green); }
+.check-item.checked .check-box::after { opacity: 1; }
+.check-item.checked .check-text { color: var(--ink); }
+
+.check-item.na { background: rgba(107,99,87,0.06); border-color: var(--rule); }
+.check-item.na .check-box { background: var(--mid); border-color: var(--mid); }
+.check-item.na .check-box::after { content: '—'; font-size: 9px; color: white; font-weight: bold; opacity: 1; }
+.check-item.na .check-text { color: var(--mid); }
+
+.check-box {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--rule);
+  flex-shrink: 0;
+  margin-top: 1px;
+  position: relative;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.check-box::after {
+  content: '';
+  font-size: 11px;
+  color: white;
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.check-text {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--mid);
+  flex: 1;
+}
+
+.check-text strong { color: var(--ink); font-weight: 600; }
+
+.na-hint {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--mid);
+  text-transform: uppercase;
+  margin-top: 16px;
+  font-style: italic;
+}
+
+/* SCORE BAR */
+.score-bar-wrap {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
+}
+
+.score-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--mid);
+  margin-bottom: 8px;
+}
+
+.score-bar-track {
+  height: 8px;
+  background: var(--rule);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.score-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--red), var(--gold), var(--green));
+  background-size: 300% 100%;
+  transition: width 0.5s ease, background-position 0.5s ease;
+  border-radius: 1px;
+}
+
+/* OVERALL RESULTS */
+.results-section {
+  margin-top: 40px;
+  display: none;
+}
+
+.results-section.show { display: block; animation: fadeIn 0.4s ease; }
+
+.results-header {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.05em;
+  border-top: 3px solid var(--ink);
+  padding-top: 20px;
+  margin-bottom: 24px;
+}
+
+.verdict-box {
+  border: 2px solid var(--ink);
+  padding: 28px 32px;
+  background: var(--ink);
+  color: var(--bg);
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.verdict-stamp {
+  position: absolute;
+  top: -14px;
+  right: 24px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  background: var(--gold);
+  color: var(--ink);
+  padding: 4px 12px;
+}
+
+.verdict-score {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 5rem;
+  line-height: 1;
+  color: var(--gold-light);
+}
+
+.verdict-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  margin-bottom: 12px;
+  line-height: 1.1;
+}
+
+.verdict-body {
+  font-size: 0.92rem;
+  font-weight: 300;
+  line-height: 1.8;
+  color: rgba(245,240,232,0.85);
+}
+
+/* DIMENSION SCORES GRID */
+.dim-scores-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 500px) { .dim-scores-grid { grid-template-columns: 1fr; } }
+
+.dim-result-card {
+  border: 1px solid var(--rule);
+  padding: 16px 20px;
+  background: var(--paper);
+}
+
+.dim-result-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+  color: var(--mid);
+}
+
+.dim-result-bar-track {
+  height: 5px;
+  background: var(--rule);
+  margin-bottom: 6px;
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.dim-result-bar-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 0.8s ease;
+}
+
+.dim-result-verdict {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ACTIONS */
+.actions-list {
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  padding: 24px 28px;
+  margin-bottom: 24px;
+}
+
+.actions-list h3 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 16px;
+  color: var(--gold);
+}
+
+.action-item {
+  display: flex;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule);
+  align-items: flex-start;
+}
+
+.action-item:last-child { border-bottom: none; }
+
+.action-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  color: var(--rule);
+  line-height: 1;
+  flex-shrink: 0;
+  width: 28px;
+}
+
+.action-text {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.action-text strong { color: var(--gold); }
+
+/* RESET */
+.reset-btn {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  background: transparent;
+  border: 2px solid var(--ink);
+  color: var(--ink);
+  padding: 12px 32px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.reset-btn:hover { background: var(--ink); color: var(--bg); }
+
+.show-results-btn {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.25em;
+  background: var(--ink);
+  border: 2px solid var(--ink);
+  color: var(--bg);
+  padding: 14px 40px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 32px;
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+.show-results-btn:hover { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="masthead">
+    <span class="masthead-left">The Wealth Direction Report</span>
+    <span class="masthead-date">Personal Financial Audit</span>
+  </div>
+
+  <h1 class="headline">Am I on the<br>Right Track<br>to Get Rich?</h1>
+  <p class="deck">A diagnostic across the 4 dimensions that actually matter — freedom, number, income, and lifestyle. Check what applies. Get your verdict.</p>
+
+  <div class="rule thick"></div>
+
+  <div class="intro-grid">
+    <div class="intro-stat">
+      <div class="intro-stat-number">4</div>
+      <div class="intro-stat-label">Dimensions of wealth</div>
+    </div>
+    <div class="intro-stat">
+      <div class="intro-stat-number">24</div>
+      <div class="intro-stat-label">Signals to check</div>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <!-- TABS -->
+  <div class="dimensions-nav">
+    <button class="dim-tab active" onclick="showDim(0)">01 — Freedom</button>
+    <button class="dim-tab" onclick="showDim(1)">02 — The Number</button>
+    <button class="dim-tab" onclick="showDim(2)">03 — Passive Income</button>
+    <button class="dim-tab" onclick="showDim(3)">04 — Lifestyle</button>
+  </div>
+
+  <!-- DIM 1: FREEDOM -->
+  <div class="dim-content active" id="dim-0">
+    <div class="dim-header">
+      <div>
+        <div class="dim-title">Financial Freedom</div>
+        <div class="dim-desc">No money stress. Living on your terms. The ability to say no.</div>
+      </div>
+      <div class="dim-score-display">
+        <div class="dim-score-num" id="score-0">0/6</div>
+        <div class="dim-score-label">checked</div>
+      </div>
+    </div>
+    <ul class="check-list" id="list-0">
+      <li class="check-item" onclick="toggle(this, 0)"><div class="check-box"></div><span class="check-text"><strong>You have 3–6 months of expenses saved</strong> as an emergency fund</span></li>
+      <li class="check-item" onclick="toggle(this, 0)"><div class="check-box"></div><span class="check-text"><strong>Your income covers all your needs</strong> plus you have money left over each month</span></li>
+      <li class="check-item" onclick="toggle(this, 0)"><div class="check-box"></div><span class="check-text"><strong>You are actively reducing or have no bad debt</strong> (credit cards, high-interest loans)</span></li>
+      <li class="check-item" onclick="toggle(this, 0)"><div class="check-box"></div><span class="check-text"><strong>You are investing consistently</strong> — even small amounts, regularly</span></li>
+      <li class="check-item" onclick="toggle(this, 0)"><div class="check-box"></div><span class="check-text"><strong>Money decisions don't cause you anxiety</strong> — you have a plan and trust it</span></li>
+      <li class="check-item" onclick="toggle(this, 0)"><div class="check-box"></div><span class="check-text"><strong>You could survive 3 months without your main income</strong> if you had to</span></li>
+    </ul>
+    <p class="na-hint">Click to check items that apply to you</p>
+    <div class="score-bar-wrap">
+      <div class="score-bar-label"><span>Not there yet</span><span>On track</span></div>
+      <div class="score-bar-track"><div class="score-bar-fill" id="bar-0" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- DIM 2: THE NUMBER -->
+  <div class="dim-content" id="dim-1">
+    <div class="dim-header">
+      <div>
+        <div class="dim-title">The Number ($1M+)</div>
+        <div class="dim-desc">Building real wealth. Assets, not just income. A specific destination.</div>
+      </div>
+      <div class="dim-score-display">
+        <div class="dim-score-num" id="score-1">0/6</div>
+        <div class="dim-score-label">checked</div>
+      </div>
+    </div>
+    <ul class="check-list" id="list-1">
+      <li class="check-item" onclick="toggle(this, 1)"><div class="check-box"></div><span class="check-text"><strong>You know your exact net worth</strong> right now (assets minus debts)</span></li>
+      <li class="check-item" onclick="toggle(this, 1)"><div class="check-box"></div><span class="check-text"><strong>You have a specific wealth target and a timeline</strong> — not just "I want to be rich someday"</span></li>
+      <li class="check-item" onclick="toggle(this, 1)"><div class="check-box"></div><span class="check-text"><strong>Your net worth grew this year</strong> — assets are accumulating, not just income going in and out</span></li>
+      <li class="check-item" onclick="toggle(this, 1)"><div class="check-box"></div><span class="check-text"><strong>You own income-producing assets</strong> (stocks, property, business equity, etc.)</span></li>
+      <li class="check-item" onclick="toggle(this, 1)"><div class="check-box"></div><span class="check-text"><strong>You are building skills or a business</strong> that could be worth significantly more than your current salary</span></li>
+      <li class="check-item" onclick="toggle(this, 1)"><div class="check-box"></div><span class="check-text"><strong>Your savings rate is 20%+</strong> of your income — the math for wealth requires this</span></li>
+    </ul>
+    <p class="na-hint">Click to check items that apply to you</p>
+    <div class="score-bar-wrap">
+      <div class="score-bar-label"><span>Not there yet</span><span>On track</span></div>
+      <div class="score-bar-track"><div class="score-bar-fill" id="bar-1" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- DIM 3: PASSIVE INCOME -->
+  <div class="dim-content" id="dim-2">
+    <div class="dim-header">
+      <div>
+        <div class="dim-title">Passive Income</div>
+        <div class="dim-desc">Money that works while you sleep. Decoupling time from earnings.</div>
+      </div>
+      <div class="dim-score-display">
+        <div class="dim-score-num" id="score-2">0/6</div>
+        <div class="dim-score-label">checked</div>
+      </div>
+    </div>
+    <ul class="check-list" id="list-2">
+      <li class="check-item" onclick="toggle(this, 2)"><div class="check-box"></div><span class="check-text"><strong>You have at least one income stream</strong> that isn't directly trading your time for money</span></li>
+      <li class="check-item" onclick="toggle(this, 2)"><div class="check-box"></div><span class="check-text"><strong>You are actively building something scalable</strong> — a product, system, or asset that can generate without you</span></li>
+      <li class="check-item" onclick="toggle(this, 2)"><div class="check-box"></div><span class="check-text"><strong>Your investment portfolio pays dividends or grows</strong> without you actively working</span></li>
+      <li class="check-item" onclick="toggle(this, 2)"><div class="check-box"></div><span class="check-text"><strong>You understand leverage</strong> — you use tools, systems, or people to multiply your output</span></li>
+      <li class="check-item" onclick="toggle(this, 2)"><div class="check-box"></div><span class="check-text"><strong>You reinvest earnings back</strong> into income-producing assets rather than lifestyle inflation</span></li>
+      <li class="check-item" onclick="toggle(this, 2)"><div class="check-box"></div><span class="check-text"><strong>You can take a week off</strong> and money still comes in</span></li>
+    </ul>
+    <p class="na-hint">Click to check items that apply to you</p>
+    <div class="score-bar-wrap">
+      <div class="score-bar-label"><span>Not there yet</span><span>On track</span></div>
+      <div class="score-bar-track"><div class="score-bar-fill" id="bar-2" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- DIM 4: LIFESTYLE -->
+  <div class="dim-content" id="dim-3">
+    <div class="dim-header">
+      <div>
+        <div class="dim-title">Wealthy Lifestyle & Assets</div>
+        <div class="dim-desc">Looking and living like the goal. The visible side of wealth.</div>
+      </div>
+      <div class="dim-score-display">
+        <div class="dim-score-num" id="score-3">0/6</div>
+        <div class="dim-score-label">checked</div>
+      </div>
+    </div>
+    <ul class="check-list" id="list-3">
+      <li class="check-item" onclick="toggle(this, 3)"><div class="check-box"></div><span class="check-text"><strong>Your lifestyle spending is intentional</strong> — you buy quality over quantity, not to impress others</span></li>
+      <li class="check-item" onclick="toggle(this, 3)"><div class="check-box"></div><span class="check-text"><strong>You are accumulating real assets</strong> (property, vehicles that hold value, art, collectibles)</span></li>
+      <li class="check-item" onclick="toggle(this, 3)"><div class="check-box"></div><span class="check-text"><strong>Your network is leveling up</strong> — you're around people who are richer, smarter, or more ambitious than you</span></li>
+      <li class="check-item" onclick="toggle(this, 3)"><div class="check-box"></div><span class="check-text"><strong>You invest in yourself</strong> — skills, health, appearance, and how you show up in the world</span></li>
+      <li class="check-item" onclick="toggle(this, 3)"><div class="check-box"></div><span class="check-text"><strong>Your lifestyle is funded by assets, not just income</strong> — you're not broke-looking-rich</span></li>
+      <li class="check-item" onclick="toggle(this, 3)"><div class="check-box"></div><span class="check-text"><strong>You experience the things you're working toward</strong> — you don't delay all enjoyment to some future date</span></li>
+    </ul>
+    <p class="na-hint">Click to check items that apply to you</p>
+    <div class="score-bar-wrap">
+      <div class="score-bar-label"><span>Not there yet</span><span>On track</span></div>
+      <div class="score-bar-track"><div class="score-bar-fill" id="bar-3" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <button class="show-results-btn" onclick="showResults()">→ GET MY VERDICT</button>
+
+  <!-- RESULTS -->
+  <div class="results-section" id="results-section">
+    <div class="rule thick"></div>
+    <div class="results-header">Your Wealth Direction Verdict</div>
+
+    <div class="verdict-box" id="verdict-box">
+      <div class="verdict-stamp">Overall Score</div>
+      <div class="verdict-score" id="verdict-score"></div>
+      <div class="verdict-title" id="verdict-title"></div>
+      <div class="verdict-body" id="verdict-body"></div>
+    </div>
+
+    <div class="dim-scores-grid" id="dim-scores-grid"></div>
+
+    <div class="actions-list" id="actions-list">
+      <h3>Your Priority Actions</h3>
+      <div id="actions-content"></div>
+    </div>
+
+    <button class="reset-btn" onclick="resetAll()">↺ Reset & Redo</button>
+  </div>
+
+</div>
+
+<script>
+const counts = [0, 0, 0, 0];
+const totals = [6, 6, 6, 6];
+const dimNames = ['Financial Freedom', 'The Number', 'Passive Income', 'Wealthy Lifestyle'];
+const dimColors = ['#1d6a3a', '#b8860b', '#c0392b', '#2c5f8a'];
+
+function toggle(el, dimIdx) {
+  if (el.classList.contains('checked')) {
+    el.classList.remove('checked');
+    counts[dimIdx]--;
+  } else {
+    el.classList.add('checked');
+    counts[dimIdx]++;
+  }
+  updateDimScore(dimIdx);
+}
+
+function updateDimScore(i) {
+  const c = counts[i];
+  const t = totals[i];
+  document.getElementById('score-' + i).textContent = c + '/' + t;
+  const pct = Math.round((c / t) * 100);
+  const bar = document.getElementById('bar-' + i);
+  bar.style.width = pct + '%';
+  // Color based on score
+  if (pct < 35) bar.style.backgroundPosition = '0% 50%';
+  else if (pct < 65) bar.style.backgroundPosition = '50% 50%';
+  else bar.style.backgroundPosition = '100% 50%';
+}
+
+function showDim(i) {
+  document.querySelectorAll('.dim-content').forEach((d, idx) => {
+    d.classList.toggle('active', idx === i);
+  });
+  document.querySelectorAll('.dim-tab').forEach((t, idx) => {
+    t.classList.toggle('active', idx === i);
+  });
+}
+
+function showResults() {
+  const total = counts.reduce((a, b) => a + b, 0);
+  const max = totals.reduce((a, b) => a + b, 0);
+  const pct = Math.round((total / max) * 100);
+
+  document.getElementById('verdict-score').textContent = pct + '%';
+
+  let title, body, actionItems;
+
+  if (pct >= 75) {
+    title = "You're on the right track. Keep building.";
+    body = "Your fundamentals are strong across multiple dimensions. You're not just dreaming about wealth — you're doing the things that create it. The gap between where you are and where you want to be is mostly time and consistency now. Don't slow down, don't inflate your lifestyle prematurely, and keep compounding.";
+    actionItems = [
+      { label: "Double down on your strongest dimension", detail: "Find what's working and do more of it — this is where your velocity is." },
+      { label: "Close the gap in your weakest area", detail: "One lagging dimension can hold back everything else. Look at where you scored lowest." },
+      { label: "Increase your investment rate", detail: "If things are going well, increase your savings/investment rate by 5% before you spend the extra." },
+    ];
+  } else if (pct >= 45) {
+    title = "You have a foundation. Now you need momentum.";
+    body = "You've got some things right — but there are real gaps that will slow you down if left unaddressed. The good news: you're not starting from zero. The honest news: momentum requires more consistency than you're currently giving. Pick the two dimensions where you scored lowest and go hard on those.";
+    actionItems = [
+      { label: "Get clear on your number", detail: "If you don't have a specific target and timeline, set one this week. Vague goals don't get achieved." },
+      { label: "Eliminate what's costing you most", detail: "Bad debt, lifestyle creep, or no emergency fund — find the biggest financial liability and address it first." },
+      { label: "Start one scalable income stream", detail: "Even small: a side project, dividends, anything that doesn't rely purely on your direct time." },
+    ];
+  } else {
+    title = "You're not yet going the right direction — but you know it now.";
+    body = "Low scores here aren't a verdict on you — they're a diagnosis. Most people who end up wealthy started with all of these boxes unchecked. The difference is they got honest, made a plan, and stayed consistent for years. You've just done the honest part. Now the work starts.";
+    actionItems = [
+      { label: "Build your emergency fund first", detail: "Before investing or anything else — 3 months of expenses in a savings account. This is non-negotiable." },
+      { label: "Track every rupee/dollar this month", detail: "You can't improve what you can't see. Write down every spend for 30 days. It will change your behavior." },
+      { label: "Learn before you earn", detail: "Invest 30 min/day into financial education — books, podcasts, whatever format works. The ROI is enormous." },
+      { label: "Increase your income potential", detail: "Long term, wealth comes from earning more and investing it. What skill can you develop that increases your earning ceiling?" },
+    ];
+  }
+
+  document.getElementById('verdict-title').textContent = title;
+  document.getElementById('verdict-body').textContent = body;
+
+  // Dim breakdown
+  const grid = document.getElementById('dim-scores-grid');
+  grid.innerHTML = counts.map((c, i) => {
+    const p = Math.round((c / totals[i]) * 100);
+    const v = p >= 65 ? 'Strong' : p >= 35 ? 'Building' : 'Needs Work';
+    const col = p >= 65 ? '#1d6a3a' : p >= 35 ? '#b8860b' : '#c0392b';
+    return `
+      <div class="dim-result-card">
+        <div class="dim-result-name">${dimNames[i]}</div>
+        <div class="dim-result-bar-track">
+          <div class="dim-result-bar-fill" style="width:${p}%; background:${col};"></div>
+        </div>
+        <div class="dim-result-verdict" style="color:${col}">${v} — ${c}/${totals[i]}</div>
+      </div>
+    `;
+  }).join('');
+
+  // Actions
+  document.getElementById('actions-content').innerHTML = actionItems.map((a, i) => `
+    <div class="action-item">
+      <div class="action-num">0${i+1}</div>
+      <div class="action-text"><strong>${a.label}.</strong> ${a.detail}</div>
+    </div>
+  `).join('');
+
+  const rs = document.getElementById('results-section');
+  rs.classList.add('show');
+  setTimeout(() => rs.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+}
+
+function resetAll() {
+  counts.fill(0);
+  document.querySelectorAll('.check-item').forEach(el => el.classList.remove('checked', 'na'));
+  [0,1,2,3].forEach(i => {
+    document.getElementById('score-' + i).textContent = '0/6';
+    document.getElementById('bar-' + i).style.width = '0%';
+  });
+  document.getElementById('results-section').classList.remove('show');
+  showDim(0);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

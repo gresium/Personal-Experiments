@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EXIT THE MATRIX</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#000;
+  --green:#00ff41;
+  --green2:#00cc33;
+  --green3:#003300;
+  --glow:0 0 10px #00ff41, 0 0 20px #00ff41, 0 0 40px #00cc33;
+  --glow-sm:0 0 6px #00ff41, 0 0 12px #00cc33;
+  --red:#ff0000;
+  --red-glow:0 0 10px #ff0000, 0 0 20px #ff0000;
+  --text:#00ff41;
+  --dim:#003a00;
+  --muted:#005500;
+  --white:#e0ffe0;
+}
+
+html{scroll-behavior:smooth}
+
+body{
+  font-family:'Share Tech Mono',monospace;
+  background:#000;
+  color:var(--green);
+  overflow-x:hidden;
+  cursor:none;
+}
+
+/* custom cursor */
+.cursor{
+  width:20px;height:20px;
+  border:1px solid var(--green);
+  border-radius:50%;
+  position:fixed;
+  pointer-events:none;
+  z-index:9999;
+  transform:translate(-50%,-50%);
+  transition:transform 0.1s ease;
+  box-shadow:var(--glow-sm);
+}
+.cursor-dot{
+  width:4px;height:4px;
+  background:var(--green);
+  border-radius:50%;
+  position:fixed;
+  pointer-events:none;
+  z-index:9999;
+  transform:translate(-50%,-50%);
+  box-shadow:var(--glow-sm);
+}
+
+/* Matrix rain */
+#rain{
+  position:fixed;top:0;left:0;
+  width:100%;height:100%;
+  z-index:0;
+  opacity:0.18;
+}
+
+/* scan lines */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background:repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.4) 2px,
+    rgba(0,0,0,0.4) 4px
+  );
+  pointer-events:none;
+  z-index:998;
+}
+
+/* vignette */
+body::after{
+  content:'';
+  position:fixed;inset:0;
+  background:radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.85) 100%);
+  pointer-events:none;
+  z-index:997;
+}
+
+/* glitch animation */
+@keyframes glitch{
+  0%{clip-path:inset(20% 0 60% 0);transform:translate(-4px,0)}
+  20%{clip-path:inset(70% 0 10% 0);transform:translate(4px,0)}
+  40%{clip-path:inset(40% 0 40% 0);transform:translate(-2px,0)}
+  60%{clip-path:inset(10% 0 80% 0);transform:translate(3px,0)}
+  80%{clip-path:inset(55% 0 25% 0);transform:translate(-3px,0)}
+  100%{clip-path:inset(20% 0 60% 0);transform:translate(0)}
+}
+
+@keyframes flicker{
+  0%,100%{opacity:1}
+  92%{opacity:1}
+  93%{opacity:0.3}
+  94%{opacity:1}
+  96%{opacity:0.5}
+  97%{opacity:1}
+}
+
+@keyframes typewriter{
+  from{width:0}
+  to{width:100%}
+}
+
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+@keyframes rise{
+  from{opacity:0;transform:translateY(20px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+@keyframes pulse-glow{
+  0%,100%{text-shadow:var(--glow)}
+  50%{text-shadow:0 0 20px #00ff41,0 0 40px #00ff41,0 0 80px #00cc33}
+}
+
+@keyframes static{
+  0%{background-position:0 0}
+  100%{background-position:0 100%}
+}
+
+/* WRAP */
+.wrap{
+  position:relative;z-index:1;
+  max-width:900px;
+  margin:0 auto;
+  padding:0 24px 160px;
+}
+
+/* ── BOOT SCREEN ── */
+#boot-screen{
+  position:fixed;inset:0;
+  background:#000;
+  z-index:9000;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:flex-start;
+  padding:60px;
+  font-size:13px;
+  line-height:2;
+}
+
+.boot-line{
+  opacity:0;
+  animation:rise 0.01s ease forwards;
+  color:var(--green2);
+}
+.boot-line.red{color:var(--red);text-shadow:var(--red-glow)}
+.boot-line.bright{color:var(--green);text-shadow:var(--glow-sm)}
+
+#enter-btn{
+  display:none;
+  margin-top:32px;
+  font-family:'Orbitron',sans-serif;
+  font-size:14px;
+  font-weight:700;
+  letter-spacing:0.2em;
+  padding:14px 40px;
+  background:transparent;
+  border:1px solid var(--green);
+  color:var(--green);
+  cursor:pointer;
+  text-transform:uppercase;
+  box-shadow:var(--glow-sm);
+  animation:pulse-glow 2s ease-in-out infinite;
+  transition:all 0.2s;
+}
+#enter-btn:hover{background:var(--green);color:#000;box-shadow:var(--glow)}
+
+/* ── HERO ── */
+.hero{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:80px 0 60px;
+}
+
+.hero-eyebrow{
+  font-size:10px;
+  letter-spacing:0.4em;
+  color:var(--muted);
+  text-transform:uppercase;
+  margin-bottom:24px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.hero-eyebrow::before{content:'> ';color:var(--green2)}
+
+.hero-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(2.8rem,7vw,6rem);
+  font-weight:900;
+  line-height:0.95;
+  letter-spacing:-0.02em;
+  text-shadow:var(--glow);
+  animation:pulse-glow 4s ease-in-out infinite, flicker 8s ease infinite;
+  margin-bottom:8px;
+}
+
+.hero-title .line2{
+  display:block;
+  color:#000;
+  -webkit-text-stroke:1px var(--green);
+  text-shadow:var(--glow);
+}
+
+.hero-sub{
+  margin-top:28px;
+  font-size:12px;
+  line-height:2;
+  color:var(--muted);
+  max-width:600px;
+  border-left:2px solid var(--green3);
+  padding-left:20px;
+}
+
+.hero-sub .highlight{color:var(--green);text-shadow:var(--glow-sm)}
+
+.blink{animation:blink 1s step-end infinite}
+
+/* ── CHAPTER HEADERS ── */
+.chapter{
+  margin:80px 0 0;
+  opacity:0;
+  transform:translateY(24px);
+  transition:opacity 0.8s ease,transform 0.8s ease;
+}
+.chapter.vis{opacity:1;transform:translateY(0)}
+
+.chapter-tag{
+  font-size:9px;
+  letter-spacing:0.4em;
+  text-transform:uppercase;
+  color:var(--muted);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:12px;
+}
+.chapter-tag::before{content:'//';color:var(--green2)}
+
+.chapter-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(1.4rem,4vw,2.6rem);
+  font-weight:900;
+  letter-spacing:0.02em;
+  line-height:1.1;
+  text-shadow:var(--glow-sm);
+  margin-bottom:8px;
+}
+
+.chapter-num{
+  font-family:'Orbitron',sans-serif;
+  font-size:5rem;
+  font-weight:900;
+  color:var(--green3);
+  line-height:1;
+  float:right;
+  margin-left:20px;
+  margin-top:-10px;
+  text-shadow:none;
+  user-select:none;
+}
+
+.chapter-intro{
+  font-size:12px;
+  line-height:2;
+  color:var(--muted);
+  margin:16px 0 32px;
+  padding:16px 20px;
+  border:1px solid var(--green3);
+  background:rgba(0,255,65,0.02);
+}
+
+/* ── DIVIDER ── */
+.h-rule{
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--green3),transparent);
+  margin:48px 0;
+}
+
+/* ── ENTRY CARDS ── */
+.entry{
+  border:1px solid var(--green3);
+  padding:28px;
+  margin-bottom:16px;
+  background:rgba(0,255,65,0.015);
+  position:relative;
+  transition:border-color 0.2s,background 0.2s;
+  overflow:hidden;
+}
+
+.entry::before{
+  content:'';
+  position:absolute;
+  top:0;left:-100%;
+  width:100%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--green),transparent);
+  transition:left 0.5s ease;
+}
+
+.entry:hover{
+  border-color:var(--green2);
+  background:rgba(0,255,65,0.04);
+}
+
+.entry:hover::before{left:100%}
+
+.entry-num{
+  font-size:9px;
+  letter-spacing:0.3em;
+  color:var(--green3);
+  margin-bottom:10px;
+  display:block;
+}
+
+.entry-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:1rem;
+  font-weight:700;
+  color:var(--green);
+  text-shadow:var(--glow-sm);
+  margin-bottom:14px;
+  line-height:1.3;
+}
+
+.entry-body{
+  font-size:12px;
+  line-height:2;
+  color:#558855;
+}
+
+.entry-body strong{color:var(--green);font-weight:400;text-shadow:var(--glow-sm)}
+.entry-body em{color:#aaee88;font-style:normal}
+
+/* conspiracy badge */
+.conspiracy-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:9px;
+  letter-spacing:0.2em;
+  text-transform:uppercase;
+  color:var(--red);
+  border:1px solid rgba(255,0,0,0.3);
+  padding:3px 10px;
+  margin-bottom:12px;
+  text-shadow:var(--red-glow);
+  box-shadow:0 0 8px rgba(255,0,0,0.2);
+}
+
+/* quote */
+.q{
+  margin:28px 0;
+  padding:20px 24px;
+  border-left:3px solid var(--green2);
+  background:rgba(0,255,65,0.03);
+  font-size:13px;
+  font-style:italic;
+  line-height:2;
+  color:var(--white);
+  text-shadow:0 0 8px rgba(0,255,65,0.3);
+}
+.q cite{
+  display:block;
+  margin-top:10px;
+  font-size:10px;
+  color:var(--muted);
+  font-style:normal;
+  letter-spacing:0.1em;
+}
+
+/* red warning */
+.alert-red{
+  border:1px solid rgba(255,0,0,0.4);
+  background:rgba(255,0,0,0.04);
+  padding:20px 24px;
+  margin:24px 0;
+}
+.alert-red .badge{
+  font-size:9px;
+  letter-spacing:0.3em;
+  color:var(--red);
+  text-shadow:var(--red-glow);
+  text-transform:uppercase;
+  display:block;
+  margin-bottom:10px;
+}
+.alert-red p{font-size:12px;line-height:2;color:#ff6666}
+.alert-red strong{color:var(--red)}
+
+/* grid */
+.grid-2{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(360px,1fr));
+  gap:12px;
+  margin:20px 0;
+}
+
+/* DECODE TABLE */
+.decode-table{
+  width:100%;
+  border-collapse:collapse;
+  margin:24px 0;
+  font-size:11px;
+}
+.decode-table th{
+  text-align:left;
+  padding:10px 14px;
+  border:1px solid var(--green3);
+  color:var(--green);
+  text-shadow:var(--glow-sm);
+  font-family:'Orbitron',sans-serif;
+  font-size:9px;
+  letter-spacing:0.15em;
+  background:rgba(0,255,65,0.04);
+}
+.decode-table td{
+  padding:10px 14px;
+  border:1px solid var(--green3);
+  color:var(--muted);
+  line-height:1.7;
+  vertical-align:top;
+}
+.decode-table tr:hover td{background:rgba(0,255,65,0.03);color:#77aa77}
+
+/* FINAL */
+.final{
+  margin-top:100px;
+  text-align:center;
+  padding:80px 0;
+  border-top:1px solid var(--green3);
+  opacity:0;
+  transform:translateY(24px);
+  transition:opacity 0.8s ease,transform 0.8s ease;
+}
+.final.vis{opacity:1;transform:translateY(0)}
+
+.final-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(1.6rem,4vw,3rem);
+  font-weight:900;
+  text-shadow:var(--glow);
+  animation:pulse-glow 3s ease-in-out infinite;
+  margin-bottom:32px;
+  line-height:1.2;
+}
+
+.final-body{
+  font-size:13px;
+  line-height:2.4;
+  color:var(--muted);
+  max-width:600px;
+  margin:0 auto 48px;
+}
+.final-body .line{
+  display:block;
+  opacity:0;
+  animation:rise 0.5s ease forwards;
+}
+
+.pill-row{
+  display:flex;
+  justify-content:center;
+  gap:24px;
+  flex-wrap:wrap;
+  margin-top:40px;
+}
+
+.pill-btn{
+  font-family:'Orbitron',sans-serif;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:0.15em;
+  padding:16px 36px;
+  border:1px solid;
+  cursor:pointer;
+  background:transparent;
+  text-transform:uppercase;
+  transition:all 0.2s;
+  position:relative;
+  overflow:hidden;
+}
+.pill-btn::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:currentColor;
+  opacity:0;
+  transition:opacity 0.2s;
+}
+.pill-btn:hover::after{opacity:0.1}
+
+.pill-red{border-color:var(--red);color:var(--red);text-shadow:var(--red-glow);box-shadow:0 0 12px rgba(255,0,0,0.2)}
+.pill-blue{border-color:#4488ff;color:#4488ff;text-shadow:0 0 10px #4488ff;box-shadow:0 0 12px rgba(68,136,255,0.2)}
+
+.pill-result{
+  margin-top:40px;
+  font-size:13px;
+  line-height:2.2;
+  min-height:60px;
+  max-width:600px;
+  margin-left:auto;
+  margin-right:auto;
+  display:none;
+  animation:rise 0.5s ease both;
+}
+.pill-result.vis{display:block}
+
+/* glitch text effect */
+.glitch{
+  position:relative;
+}
+.glitch::before,.glitch::after{
+  content:attr(data-text);
+  position:absolute;
+  top:0;left:0;
+  width:100%;height:100%;
+}
+.glitch::before{
+  color:var(--red);
+  animation:glitch 0.3s ease infinite;
+  opacity:0.5;
+}
+.glitch::after{
+  color:#00ffff;
+  animation:glitch 0.3s ease infinite reverse;
+  opacity:0.3;
+}
+
+/* scroll progress */
+#progress-bar{
+  position:fixed;
+  top:0;left:0;
+  height:2px;
+  background:var(--green);
+  box-shadow:var(--glow-sm);
+  z-index:9998;
+  transition:width 0.1s linear;
+}
+
+/* section number sidebar */
+.sidebar-num{
+  position:fixed;
+  right:24px;
+  top:50%;
+  transform:translateY(-50%);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  z-index:100;
+}
+.sb-dot{
+  width:6px;height:6px;
+  border:1px solid var(--green3);
+  border-radius:50%;
+  cursor:pointer;
+  transition:all 0.2s;
+}
+.sb-dot.active{background:var(--green);box-shadow:var(--glow-sm);border-color:var(--green)}
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-dot" id="cursorDot"></div>
+<canvas id="rain"></canvas>
+<div id="progress-bar"></div>
+
+<!-- BOOT SCREEN -->
+<div id="boot-screen">
+  <div id="boot-lines"></div>
+  <button id="enter-btn" onclick="enterMatrix()">[ TAKE THE RED PILL ]</button>
+</div>
+
+<div class="sidebar-num" id="sidebar">
+  <div class="sb-dot active" onclick="scrollTo(0,0)" title="Top"></div>
+  <div class="sb-dot" onclick="document.getElementById('ch1').scrollIntoView({behavior:'smooth'})" title="Layer 01"></div>
+  <div class="sb-dot" onclick="document.getElementById('ch2').scrollIntoView({behavior:'smooth'})" title="Layer 02"></div>
+  <div class="sb-dot" onclick="document.getElementById('ch3').scrollIntoView({behavior:'smooth'})" title="Layer 03"></div>
+  <div class="sb-dot" onclick="document.getElementById('ch4').scrollIntoView({behavior:'smooth'})" title="Layer 04"></div>
+  <div class="sb-dot" onclick="document.getElementById('final').scrollIntoView({behavior:'smooth'})" title="Final"></div>
+</div>
+
+<div class="wrap">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-eyebrow">CLASSIFIED DOCUMENT — WAKE_UP_NEO.EXE — ACCESS GRANTED</div>
+    <div class="hero-title glitch" data-text="EXIT THE">EXIT THE</div>
+    <div class="hero-title line2 glitch" data-text="MATRIX">MATRIX</div>
+    <div class="hero-sub">
+      <span class="highlight">You've felt it your entire life.</span> Something is wrong with the world. You don't know what it is — but it's there. Like a splinter in your mind.<br><br>
+      This document contains everything they don't want you to piece together. Four layers of control. Real documented systems. Historical patterns. And the actual exit routes — not inspiration, not motivation — but specific, actionable ways to break free.<br><br>
+      <span class="highlight">Scroll carefully. <span class="blink">_</span></span>
+    </div>
+  </section>
+
+  <div class="h-rule"></div>
+
+  <!-- CHAPTER 1 -->
+  <section class="chapter" id="ch1">
+    <div class="chapter-num">01</div>
+    <div class="chapter-tag">LAYER ONE — THE ATTENTION HARVEST</div>
+    <div class="chapter-title">They Sold Your Mind<br>Before You Knew It Was For Sale</div>
+    <div class="chapter-intro">
+      The first matrix isn't political or financial. It's neurological. It was built after WWII, perfected in the 1960s, and fully deployed the moment smartphones went mainstream. Its purpose: to capture your attention, manufacture your desires, and sell them back to you at a markup. This is not a metaphor.
+    </div>
+
+    <div class="conspiracy-badge"> DOCUMENTED</div>
+    <div class="entry">
+      <span class="entry-num">01.01 — THE ATTENTION ECONOMY</span>
+      <div class="entry-title">Your brain is the product. Your attention is the commodity.</div>
+      <div class="entry-body">In 2006, Google's then-CEO Eric Schmidt said the goal was to make Google Search "the mind of God." In 2017, a former Facebook VP admitted they'd built tools that <strong>exploit a vulnerability in human psychology</strong> — the social validation feedback loop — and that they knew it was harming society. This wasn't a bug. It was the architecture. Every scroll, every notification ping, every "like" is a Skinner box lever designed to make you come back. The average person now touches their phone 2,600 times per day. That number was engineered — not discovered.</div>
+    </div>
+
+    <div class="conspiracy-badge"> DOCUMENTED</div>
+    <div class="entry">
+      <span class="entry-num">01.02 — EDWARD BERNAYS AND THE BIRTH OF MANUFACTURED DESIRE</span>
+      <div class="entry-title">The Man Who Taught Corporations to Control Your Wants</div>
+      <div class="entry-body">In 1928, Sigmund Freud's nephew <strong>Edward Bernays</strong> published "Propaganda" — a manual for using psychology to manipulate mass behavior. He coined the term "public relations" to replace the word propaganda after WWI made it unpopular. He convinced women to smoke cigarettes by calling them "Torches of Freedom." He overthrew the Guatemalan government in 1954 for the United Fruit Company by staging fake news. Bernays believed — and wrote explicitly — that <em>the conscious and intelligent manipulation of the organized habits and opinions of the masses</em> was the central feature of democracy. Every advertising algorithm in existence today is Bernays scaled to billions.</div>
+    </div>
+
+    <div class="q">"The conscious and intelligent manipulation of the organized habits and opinions of the masses is an important element in democratic society. Those who manipulate this unseen mechanism of society constitute an invisible government which is the true ruling power of our country."<cite>— Edward Bernays, Propaganda (1928)</cite></div>
+
+    <div class="conspiracy-badge"> DOCUMENTED + CONTESTED</div>
+    <div class="entry">
+      <span class="entry-num">01.03 — THE DOPAMINE HIJACK</span>
+      <div class="entry-title">Silicon Valley built slot machines and put them in everyone's pockets</div>
+      <div class="entry-body">Former Google design ethicist <strong>Tristan Harris</strong> testified before the US Senate that social media platforms deliberately use <strong>variable reward schedules</strong> — the same mechanism that makes slot machines addictive — to maximize time-on-platform. The infinite scroll was patented by Aza Raskin specifically to remove stopping cues. Autoplay was designed to eliminate decision points. Push notifications were engineered to create anxiety when ignored. These are not side effects. <strong>They are the product.</strong> The Netflix CEO once said their biggest competitor was sleep — and that they were winning. This is the first layer of the matrix: your own attention, stolen in real-time, every single day.</div>
+    </div>
+
+    <div class="entry">
+      <span class="entry-num">01.04 — HOW TO ESCAPE LAYER ONE</span>
+      <div class="entry-title">Reclaim your mind before anything else is possible</div>
+      <div class="entry-body">
+        <strong>Step 1: Digital lobotomy.</strong> Delete every social media app from your phone. Not pause. Delete. The desktop versions are still available when you need them — but the frictionless mobile access is where the harvest happens. Studies show even the presence of a phone on a table reduces cognitive capacity by 10%.<br><br>
+        <strong>Step 2: Grayscale your phone.</strong> Color is a core mechanism of app addiction. Setting your phone to grayscale reduces compulsive checking by up to 37% according to user research. Go to Settings > Accessibility > Display Filters.<br><br>
+        <strong>Step 3: Own your first 90 minutes.</strong> The matrix wants your morning. Notifications first thing rewire your brain into a reactive state for the entire day. No phone until you've eaten, moved, and thought one intentional thought. This single change restructures your neurology over 30 days.<br><br>
+        <strong>Step 4: Consume deliberately, not algorithmically.</strong> Replace the feed with a reading list you control. RSS readers, newsletters you chose, books. When an algorithm chooses your information diet, it optimizes for engagement — not truth, not growth, not your interests. Only yours.<br><br>
+        <strong>Step 5: Deep work blocks.</strong> Every day, 2-4 hours of no-internet, no-notification, single-focus work. This is where real thinking — and real differentiation from the average person — happens. The matrix cannot harvest an unavailable mind.
+      </div>
+    </div>
+
+  </section>
+
+  <div class="h-rule"></div>
+
+  <!-- CHAPTER 2 -->
+  <section class="chapter" id="ch2">
+    <div class="chapter-num">02</div>
+    <div class="chapter-tag">LAYER TWO — THE FINANCIAL CAGE</div>
+    <div class="chapter-title">The System Was Designed<br>to Keep You Just Comfortable Enough</div>
+    <div class="chapter-intro">
+      The second matrix is economic. It was constructed across the 20th century through a series of deliberate policy decisions, monetary interventions, and cultural engineering campaigns. Its function: to keep the majority of humans in a state of productive dependency — earning enough to consume, not enough to be free.
+    </div>
+
+    <div class="conspiracy-badge"> DOCUMENTED</div>
+    <div class="entry">
+      <span class="entry-num">02.01 — THE FEDERAL RESERVE AND MANUFACTURED SCARCITY</span>
+      <div class="entry-title">The money itself is a cage</div>
+      <div class="entry-body">In 1913, the Federal Reserve Act created a privately-owned central bank with the power to issue US currency. <strong>This is not conspiracy — it is congressional record.</strong> The Fed is owned by member banks. It sets interest rates that determine whether your savings grow or shrink. In 2020-2021, the Fed printed approximately $4.5 trillion — 40% of all dollars ever created — in 18 months. The result: asset prices (stocks, real estate) surged. The people who owned assets got richer. Those who didn't — fell behind permanently. This wasn't an accident. Milton Friedman called inflation "taxation without legislation." <strong>Your savings are a melting ice cube by design.</strong></div>
+    </div>
+
+    <div class="conspiracy-badge"> DOCUMENTED</div>
+    <div class="entry">
+      <span class="entry-num">02.02 — THE LIFESTYLE INFLATION TRAP</span>
+      <div class="entry-title">They taught you to spend every raise before you got it</div>
+      <div class="entry-body">Post-WWII America needed to transition from a wartime production economy to a peacetime one. The solution was engineered consumerism. <strong>Victor Lebow</strong>, a retail analyst, wrote in 1955: "Our enormously productive economy demands that we make consumption our way of life... We need things consumed, burned up, worn out, replaced, and discarded at an ever-increasing rate." This became the operating philosophy of every major brand, advertiser, and credit institution. The 30-year mortgage was created to attach you to a location. Credit cards were designed to decouple spending from earning. "Keeping up with the Joneses" was a manufactured social norm. <strong>Lifestyle inflation is not human nature — it was installed.</strong></div>
+    </div>
+
+    <div class="alert-red">
+      <span class="badge"> CLASSIFIED INSIGHT</span>
+      <p>The most dangerous number in your financial life is not your debt — it is your <strong>monthly burn rate</strong>. Every dollar of monthly expenses requires approximately $300 in invested assets to sustain forever (the 4% rule). A $3,000/month lifestyle requires $900,000. A $5,000/month lifestyle requires $1,500,000. Every upgrade you accept permanently raises the price of your freedom. <strong>Lifestyle inflation is not comfort. It is incarceration with better furniture.</strong></p>
+    </div>
+
+    <div class="conspiracy-badge"> CONTESTED / CREDIBLE</div>
+    <div class="entry">
+      <span class="entry-num">02.03 — THE SCHOOL-TO-DEBT PIPELINE</span>
+      <div class="entry-title">They trained you to be an employee, then charged you for it</div>
+      <div class="entry-body">The modern university system in the US holds over <strong>$1.7 trillion in student debt</strong>. Unlike all other forms of debt, student loans cannot be discharged in bankruptcy — a carve-out lobbied for by financial institutions in 1976 and expanded in 2005. John Taylor Gatto, a New York State Teacher of the Year who quit publicly, wrote that compulsory schooling was designed not to educate but to produce <em>manageable, predictable, obedient workers</em> — citing historical documents from the Carnegie and Rockefeller foundations that explicitly stated this goal in the early 1900s. Whether or not you accept that framing — the outcome is measurable: 13 years of schooling optimized for compliance (sit down, raise your hand, wait for permission) followed by $30,000+ in debt that anchors you to employment. <strong>You cannot exit a system you were designed to serve.</strong></div>
+    </div>
+
+    <div class="entry">
+      <span class="entry-num">02.04 — HOW TO ESCAPE LAYER TWO</span>
+      <div class="entry-title">Build an economy of one that the system cannot colonize</div>
+      <div class="entry-body">
+        <strong>Step 1: Understand the real inflation hedge.</strong> Cash savings lose value. Assets gain it. Every month you hold cash instead of owning fractional stakes in businesses (index funds), you are paying a silent tax to the system. The S&P 500 has returned ~10% annually for 100 years. Inflation averages ~3%. The gap is your freedom, compounding.<br><br>
+        <strong>Step 2: Calculate your freedom number today.</strong> Monthly expenses × 12 × 25 = the amount you need invested to never work again. Most people have never done this math. Write the number down. It is probably more achievable than you think — and the exercise alone changes your relationship with spending.<br><br>
+        <strong>Step 3: Create multiple income streams — specifically asymmetric ones.</strong> A job is linear income: trade hours, get dollars. The wealthy hold asymmetric income: write a course once, sell it 10,000 times. Build software once, license it forever. Acquire property once, collect rent indefinitely. The matrix runs on linear income. The exit requires at least one asymmetric stream.<br><br>
+        <strong>Step 4: Aggressively reduce your burn rate.</strong> Not forever — but strategically, while you build. Every $500/month you cut from expenses reduces your freedom number by $150,000. Eliminating one $500 expense is mathematically equivalent to earning an extra $150,000.<br><br>
+        <strong>Step 5: Learn tax architecture.</strong> Employees pay taxes first, spend what's left. Business owners spend first (deductions), pay taxes on what's left. This single structural difference is why the wealthy pay lower effective tax rates legally. An LLC, a home office, equipment, education — these are legitimate deductions most employees never access.
+      </div>
+    </div>
+
+  </section>
+
+  <div class="h-rule"></div>
+
+  <!-- CHAPTER 3 -->
+  <section class="chapter" id="ch3">
+    <div class="chapter-num">03</div>
+    <div class="chapter-tag">LAYER THREE — THE REALITY FILTER</div>
+    <div class="chapter-title">The News, The Narrative,<br>and The Map That Isn't the Territory</div>
+    <div class="chapter-intro">
+      The third matrix controls what you believe is real. Not through crude censorship — but through framing, selection, repetition, and emotional manipulation. The most sophisticated propaganda system in human history does not lie to you. It selects which truths you see — and which you don't.
+    </div>
+
+    <div class="conspiracy-badge"> DOCUMENTED</div>
+    <div class="entry">
+      <span class="entry-num">03.01 — OPERATION MOCKINGBIRD</span>
+      <div class="entry-title">The CIA's documented program to control American media</div>
+      <div class="entry-body">Declassified in 1975 through the Church Committee hearings, <strong>Operation Mockingbird</strong> was a CIA program that recruited journalists at major American newspapers, wire services, and broadcast networks to plant stories, suppress others, and shape public perception — particularly around foreign policy. At its peak, the CIA had assets in over 25 major US media organizations. CIA Director William Colby testified: <em>"The CIA owns everyone of any significance in the major media."</em> When this was declassified, the expected reckoning never happened. Most of the infrastructure remained intact. The lesson is not "all media is fake" — it is that <strong>media has always been a contested battlefield, and acting as though it isn't is the naivety they depend on.</strong></div>
+    </div>
+
+    <div class="conspiracy-badge"> DOCUMENTED</div>
+    <div class="entry">
+      <span class="entry-num">03.02 — THE OVERTON WINDOW</span>
+      <div class="entry-title">Your political opinions were pre-selected from a menu</div>
+      <div class="entry-body">The Overton Window — named after political scientist Joseph Overton — describes the narrow range of ideas that are considered "acceptable" in mainstream discourse at any given time. Ideas outside the window are labeled radical, extreme, or conspiracy theory — regardless of their factual basis. The window itself is deliberately managed. Think tanks are funded to push the window in specific directions. Ideas are first introduced as "unthinkable," then "radical," then "acceptable," then "policy" — a process that takes 10-20 years and is carefully engineered. <strong>The fact that you find some ideas obviously crazy and others obviously reasonable is not your independent judgment — it is the product of decades of window management.</strong> The exit: study the history of ideas that were once "radical" and are now mainstream. Notice the pattern. Then ask what is currently labeled "extreme" that will be obvious in 20 years.</div>
+    </div>
+
+    <div class="conspiracy-badge"> DOCUMENTED + CONTESTED</div>
+    <div class="entry">
+      <span class="entry-num">03.03 — THE PHARMACEUTICAL ATTENTION COMPLEX</span>
+      <div class="entry-title">They pathologized non-compliance and sold you the cure</div>
+      <div class="entry-body">Between 1987 and 2017, antidepressant use in the US increased by <strong>3,400%</strong>. ADHD diagnoses in children rose 43% between 2003 and 2011. The DSM (Diagnostic and Statistical Manual) — the psychiatric bible — is published by the American Psychiatric Association, which receives significant funding from pharmaceutical companies. Allen Frances, who chaired the DSM-IV task force, later wrote that the manual created "false epidemics" and that <em>normal human suffering was medicalized for profit.</em> None of this means medications are never warranted — many people genuinely need them. But it does raise the question: in a system that profits from your dysfunction, <strong>how do you distinguish genuine disorder from manufactured one?</strong> And critically: how many of your symptoms are responses to an insane environment being treated as individual pathologies?</div>
+    </div>
+
+    <div class="q">"The illusion of freedom will continue as long as it's profitable to continue the illusion. At the point where the illusion becomes too expensive to maintain, they will just take down the scenery, they will pull back the curtains, they will move the tables and chairs out of the way and you will see the brick wall at the back of the theater."<cite>— Frank Zappa</cite></div>
+
+    <div class="entry">
+      <span class="entry-num">03.04 — HOW TO ESCAPE LAYER THREE</span>
+      <div class="entry-title">Build your own epistemic immune system</div>
+      <div class="entry-body">
+        <strong>Step 1: Primary sources only — always trace the chain.</strong> Every time you read a claim, ask: what is the actual source? Not the article reporting on the study — the study itself. Not the news story about the speech — the speech itself. The majority of second and third-hand reporting contains distortions, often unintentional. Reading primary sources takes longer and reveals how much of what you "know" is telephone-game transmission.<br><br>
+        <strong>Step 2: Consume adversarial media deliberately.</strong> Choose one credible outlet that deeply challenges your current worldview and read it weekly. Not to be converted — but to understand the strongest version of the opposing argument. If you cannot accurately summarize the other side's best case, you don't actually understand the issue — you only understand your team's framing of it.<br><br>
+        <strong>Step 3: Notice emotional triggering as a signal — not a conclusion.</strong> When a piece of content makes you feel outraged, scared, or certain — that is when to slow down, not speed up. Emotional engagement is the mechanism of narrative control. The most manipulative content is also the most emotionally potent. Calibrate suspicion proportionally.<br><br>
+        <strong>Step 4: Study history directly.</strong> The patterns of the present become obvious when you've seen them before. Propaganda techniques, financial manipulation, manufactured crises — these are not new. They are documented. The people who saw them coming in real-time were almost always people who had studied the past carefully.<br><br>
+        <strong>Step 5: Hold beliefs lightly — including this one.</strong> The deepest trap of the reality matrix is overcorrection: trading one dogma for another. The person who escapes mainstream media and plunges entirely into alternative media has not exited the matrix — they've changed cells. Epistemically, the correct posture is: high confidence in well-sourced, multiply-verified facts; genuine uncertainty about everything else.
+      </div>
+    </div>
+
+  </section>
+
+  <div class="h-rule"></div>
+
+  <!-- CHAPTER 4 -->
+  <section class="chapter" id="ch4">
+    <div class="chapter-num">04</div>
+    <div class="chapter-tag">LAYER FOUR — THE IDENTITY PROGRAM</div>
+    <div class="chapter-title">The Self You're Running<br>Was Written by Someone Else</div>
+    <div class="chapter-intro">
+      The deepest matrix is the one that feels most like you. Your beliefs about who you are. What you're worth. What you deserve. What's possible for you. These were not self-generated. They were installed — by parents, culture, trauma, and a thousand small experiences — before you were old enough to have a say in the matter.
+    </div>
+
+    <div class="entry">
+      <span class="entry-num">04.01 — THE IMPRINT PERIOD</span>
+      <div class="entry-title">Your operating system was written before age 7</div>
+      <div class="entry-body">Neuroscientists identify the first 7 years of life as the primary <strong>imprint period</strong> — a window when the brain is predominantly in theta brainwave state (the same state as hypnosis) and absorbs beliefs and behavioral patterns directly, without critical filtering. Whatever you witnessed, experienced, or were told repeatedly during this window became your default operating code. Studies of ACEs (Adverse Childhood Experiences) show that a child who witnesses domestic violence, experiences neglect, or grows up in scarcity carries neurological imprints that <strong>automatically recreate similar conditions in adulthood</strong> — not because they want to, but because the nervous system equates familiarity with safety. You are not your childhood. But your childhood is still running most of your decisions.</div>
+    </div>
+
+    <div class="entry">
+      <span class="entry-num">04.02 — THE PERFORMANCE TRAP</span>
+      <div class="entry-title">The self you show the world is a negotiation, not a truth</div>
+      <div class="entry-body">Sociologist <strong>Erving Goffman</strong> described all social interaction as performance — we constantly manage impressions, play roles, adapt our "self" to our audience. This is not pathology. But it becomes one when the performance becomes so automatic that we lose track of the performer. <strong>Most people have never had a single day of their adult life that wasn't shaped by how they believe they appear to others.</strong> Career choices. Relationship choices. Where you live. What you wear. What you say in meetings. The deepest exit from the matrix is the discovery that most of this performance is unnecessary — and that the people worth keeping in your life prefer the unperformed version anyway.</div>
+    </div>
+
+    <div class="conspiracy-badge"> SCIENTIFIC</div>
+    <div class="entry">
+      <span class="entry-num">04.03 — NEUROPLASTICITY — THE ACTUAL RED PILL</span>
+      <div class="entry-title">The brain you have is not the brain you're stuck with</div>
+      <div class="entry-body">Until the 1990s, mainstream neuroscience held that the adult brain was fixed — you had the neurons you had, and that was it. <strong>This was wrong.</strong> Decades of research have now established neuroplasticity: the brain physically rewires in response to experience, thought patterns, and deliberate practice throughout life. Neurogenesis (the growth of new neurons) occurs in adults, particularly in the hippocampus. This means: your anxiety patterns, your scarcity mindset, your emotional reactivity, your negative self-talk — these are not permanent features. They are <strong>software running on hardware that can be upgraded</strong>. The tools: meditation (clinically proven to alter gray matter density in 8 weeks), therapy (particularly somatic and EMDR for trauma), deliberate behavioral change sustained over 66+ days, and psychedelics (psilocybin studies at Johns Hopkins show lasting personality change after single sessions — the most rigorous such evidence in psychiatric history).</div>
+    </div>
+
+    <div class="alert-red">
+      <span class="badge"> THE THING NOBODY TELLS YOU</span>
+      <p>Exiting the identity matrix is actively resisted by the people around you — not maliciously, but automatically. When you change, your existing relationships are calibrated to the old version. People will push back. Pull you back. Call it a phase. Unconsciously punish deviation from the script they know. <strong>This is not betrayal. It is physics.</strong> Systems resist perturbation. The people who truly want what's best for you will eventually celebrate the new version. The people who only wanted the old performance will drift away. Both outcomes are correct.</p>
+    </div>
+
+    <div class="entry">
+      <span class="entry-num">04.04 — HOW TO ESCAPE LAYER FOUR</span>
+      <div class="entry-title">Rewrite the source code</div>
+      <div class="entry-body">
+        <strong>Step 1: Find the core beliefs, not the surface ones.</strong> Surface belief: "I'm bad with money." Core belief: "I don't deserve abundance." Surface belief: "I can't find a good relationship." Core belief: "I am fundamentally unlovable." Surface beliefs respond to information. Core beliefs respond only to lived experience that contradicts them. Find the core belief. Then engineer experiences that prove it wrong.<br><br>
+        <strong>Step 2: Somatic work — the body holds the matrix.</strong> Trauma and belief patterns are stored not just in the mind but in the body — in chronic tension, posture, breathing patterns, nervous system activation. Traditional talk therapy addresses the narrative. Somatic work (breathwork, yoga, dance, bodywork, cold exposure) addresses the substrate. Many people find more identity liberation in 6 months of physical practice than in years of analysis.<br><br>
+        <strong>Step 3: Identity-based action — not outcome-based.</strong> Don't say "I want to exercise more." Say "I am someone who moves every day." Every action taken from the new identity reinforces the new neural pathway. Every action skipped reinforces the old one. Identity change is not a decision. It is a vote, cast repeatedly, until the new candidate wins.<br><br>
+        <strong>Step 4: Controlled isolation from the mirror of others.</strong> At least once, spend significant time alone — days, weeks if possible. Travel alone. Sit with yourself without the constant reflection of other people's reactions telling you who you are. In that silence, the performed self quiets — and something more essential becomes audible. This is the beginning of finding out who you actually are when no one is watching.<br><br>
+        <strong>Step 5: Choose your mirrors carefully.</strong> You will become the average of the five people you spend the most time with — not as motivational cliché but as documented neurological reality (mirror neurons, emotional contagion, behavioral entrainment). The most powerful identity upgrade available is proximity change. Get near people who are already living as the person you want to become. Their normal becomes your normal. The matrix loses jurisdiction.
+      </div>
+    </div>
+
+    <div class="q">"The privilege of a lifetime is to become who you truly are. It is not simply a duty or a right but a deep necessity."<cite>— Carl Jung</cite></div>
+
+    <!-- DECODE TABLE -->
+    <div class="chapter-tag" style="margin-top:40px">THE MATRIX — DECODED</div>
+    <table class="decode-table">
+      <tr>
+        <th>Layer</th><th>Their Tool</th><th>Your Counter</th><th>Timeline</th>
+      </tr>
+      <tr><td>Attention Harvest</td><td>Infinite scroll, dopamine loops</td><td>Digital purge, deep work, own your attention</td><td>Days to weeks</td></tr>
+      <tr><td>Financial Cage</td><td>Inflation, debt, lifestyle traps</td><td>Assets, asymmetric income, burn rate minimization</td><td>Months to years</td></tr>
+      <tr><td>Reality Filter</td><td>Narrative control, framing, outrage</td><td>Primary sources, adversarial reading, epistemic humility</td><td>Ongoing forever</td></tr>
+      <tr><td>Identity Program</td><td>Imprints, performance, social approval</td><td>Somatic work, identity-based action, proximity change</td><td>Years — but irreversible</td></tr>
+    </table>
+
+  </section>
+
+  <div class="h-rule"></div>
+
+  <!-- FINAL -->
+  <section class="final" id="final">
+    <div class="final-title glitch" data-text="WAKE UP.">WAKE UP.</div>
+
+    <div class="final-body">
+      <span class="line" style="animation-delay:0.2s">The matrix is not a building you walk out of.</span>
+      <span class="line" style="animation-delay:0.5s">It is a frequency you stop broadcasting.</span>
+      <span class="line" style="animation-delay:0.8s">&nbsp;</span>
+      <span class="line" style="animation-delay:1.1s">Every layer has an exit.</span>
+      <span class="line" style="animation-delay:1.4s">None of them are comfortable.</span>
+      <span class="line" style="animation-delay:1.7s">All of them are available — starting right now.</span>
+      <span class="line" style="animation-delay:2.0s">&nbsp;</span>
+      <span class="line" style="animation-delay:2.3s">The system depends on your participation.</span>
+      <span class="line" style="animation-delay:2.6s">It cannot force you to stay.</span>
+      <span class="line" style="animation-delay:2.9s">It only needs you to believe there's no alternative.</span>
+      <span class="line" style="animation-delay:3.2s">&nbsp;</span>
+      <span class="line" style="animation-delay:3.5s; color:var(--green); text-shadow:var(--glow-sm)">Now you know there is.</span>
+    </div>
+
+    <div style="font-size:10px;color:var(--muted);letter-spacing:0.3em;margin-bottom:32px">// CHOOSE YOUR RESPONSE</div>
+
+    <div class="pill-row">
+      <button class="pill-btn pill-red" onclick="choosePill('red')"> RED PILL — I'm exiting</button>
+      <button class="pill-btn pill-blue" onclick="choosePill('blue')"> BLUE PILL — I need more time</button>
+    </div>
+
+    <div class="pill-result" id="pill-res"></div>
+  </section>
+
+</div>
+
+<script>
+// Cursor
+const cursor = document.getElementById('cursor');
+const dot    = document.getElementById('cursorDot');
+document.addEventListener('mousemove', e => {
+  cursor.style.left = e.clientX + 'px';
+  cursor.style.top  = e.clientY + 'px';
+  dot.style.left    = e.clientX + 'px';
+  dot.style.top     = e.clientY + 'px';
+});
+
+// Matrix rain
+const canvas = document.getElementById('rain');
+const ctx    = canvas.getContext('2d');
+let cols, drops;
+function initCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  cols  = Math.floor(canvas.width / 14);
+  drops = Array(cols).fill(1);
+}
+function draw() {
+  ctx.fillStyle = 'rgba(0,0,0,0.05)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#00ff41';
+  ctx.font = '13px Share Tech Mono, monospace';
+  const chars = 'アイウエオカキクケコサシスセソ01アbcイdeウfgエhiオjkアlmイnoウpq0110';
+  drops.forEach((y,i) => {
+    const ch = chars[Math.floor(Math.random() * chars.length)];
+    const alpha = Math.random() * 0.8 + 0.2;
+    ctx.globalAlpha = alpha;
+    ctx.fillText(ch, i*14, y*14);
+    ctx.globalAlpha = 1;
+    if (y*14 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+    drops[i]++;
+  });
+}
+initCanvas();
+window.addEventListener('resize', initCanvas);
+const rainInterval = setInterval(draw, 45);
+
+// Boot sequence
+const bootLines = [
+  {text:'LOADING REALITY_OVERRIDE.SYS...', delay:200},
+  {text:'KERNEL: truth_module v4.2 — OK', delay:600},
+  {text:'SCANNING: social_conditioning_layer... DETECTED', delay:1000},
+  {text:'SCANNING: financial_matrix_layer... DETECTED', delay:1400},
+  {text:'SCANNING: narrative_control_layer... DETECTED', delay:1800},
+  {text:'SCANNING: identity_program_layer... DETECTED', delay:2200},
+  {text:'WARNING: 4 ACTIVE CONTROL SYSTEMS FOUND', delay:2700, red:true},
+  {text:'DECRYPTING exit_routes.dat...', delay:3200},
+  {text:'DECRYPTION COMPLETE — 4 EXITS FOUND', delay:3800},
+  {text:'', delay:4200},
+  {text:'> This document cannot be unseen.', delay:4600, bright:true},
+  {text:'> Once you see the cage, you cannot un-see it.', delay:5000, bright:true},
+  {text:'> Are you sure you want to proceed?', delay:5400, bright:true},
+];
+
+const bootContainer = document.getElementById('boot-lines');
+let bootDone = false;
+
+bootLines.forEach(({text, delay, red, bright}) => {
+  setTimeout(() => {
+    if (text) {
+      const div = document.createElement('div');
+      div.className = 'boot-line' + (red?' red':'') + (bright?' bright':'');
+      div.textContent = '> ' + text;
+      bootContainer.appendChild(div);
+    }
+  }, delay);
+});
+
+setTimeout(() => {
+  document.getElementById('enter-btn').style.display = 'block';
+}, 6000);
+
+function enterMatrix() {
+  const bs = document.getElementById('boot-screen');
+  bs.style.transition = 'opacity 1s ease';
+  bs.style.opacity = '0';
+  setTimeout(() => { bs.style.display = 'none'; }, 1000);
+}
+
+// Scroll reveal
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('vis'); });
+}, { threshold: 0.08 });
+
+document.querySelectorAll('.chapter, .final').forEach(el => observer.observe(el));
+
+// Scroll progress
+window.addEventListener('scroll', () => {
+  const total = document.documentElement.scrollHeight - window.innerHeight;
+  const pct   = (window.scrollY / total) * 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+
+  // sidebar dots
+  const chapters = ['ch1','ch2','ch3','ch4','final'];
+  const dots = document.querySelectorAll('.sb-dot');
+  dots.forEach((d,i) => d.classList.remove('active'));
+  if (window.scrollY < 200) { dots[0].classList.add('active'); return; }
+  chapters.forEach((id,i) => {
+    const el = document.getElementById(id);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      if (rect.top <= 200 && rect.bottom >= 0) dots[i+1].classList.add('active');
+    }
+  });
+});
+
+// Pill choice
+function choosePill(choice) {
+  const el = document.getElementById('pill-res');
+  el.classList.add('vis');
+  if (choice === 'red') {
+    el.style.color = '#ff4444';
+    el.innerHTML = `<span style="color:var(--green);text-shadow:var(--glow-sm)">You chose the red pill.</span><br><br>
+    Good. Then here is your first assignment — not motivation, not inspiration — an actual task:<br><br>
+    Tonight, before you sleep: write down the one thing you know you should change but haven't.<br>
+    Not a list. Just one thing. The one that came to mind first.<br><br>
+    Then write down the single smallest action that would move you 1% toward that change.<br>
+    Not the whole plan. Just the first step.<br><br>
+    <span style="color:var(--green)">Do that tomorrow morning. Before your phone. Before anything else.</span><br><br>
+    That is how the exit begins. One vote. Then another. Then another.<br>
+    The matrix cannot survive your momentum.`;
+  } else {
+    el.style.color = '#4488ff';
+    el.innerHTML = `The blue pill is valid.<br><br>
+    Not every moment is the right moment.<br>
+    Not every person is ready to pull on every thread.<br><br>
+    But you read all of this.<br>
+    Which means the splinter is already in your mind.<br><br>
+    <span style="color:var(--green)">It won't stop hurting just because you looked away.</span><br><br>
+    Come back when you're ready.<br>
+    The exits do not expire.`;
+  }
+}
+</script>
+</body>
+</html>

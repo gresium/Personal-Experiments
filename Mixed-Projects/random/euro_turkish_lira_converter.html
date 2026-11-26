@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Euro ↔ Turkish Lira Converter</title>
+  <style>
+    :root { color-scheme: light dark; --bg:#f4f6f8; --card:#fff; --text:#17202a; --muted:#667085; --border:#e2e7ec; --accent:#1769aa; --soft:#edf4fb; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#101418; --card:#191f25; --text:#edf2f7; --muted:#a4afba; --border:#303943; --accent:#8bc5ff; --soft:#202e3b; }
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:24px 16px; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:620px; margin:0 auto; }
+    h1 { font-size:clamp(1.7rem,5vw,2.3rem); line-height:1.15; margin:0 0 8px; }
+    .intro { color:var(--muted); margin:0 0 22px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:18px; padding:20px; margin:16px 0; box-shadow:0 5px 20px #00000008; }
+    .rate { font-size:1.55rem; font-weight:750; margin:4px 0; }
+    .muted { color:var(--muted); font-size:.9rem; }
+    .pair { display:flex; align-items:center; gap:14px; }
+    .flag { font-size:2.2rem; width:48px; text-align:center; }
+    .divider { height:1px; background:var(--border); margin:16px 0; }
+    .switch { display:flex; gap:8px; padding:5px; border:1px solid var(--border); border-radius:12px; margin:16px 0 20px; }
+    button { cursor:pointer; font:inherit; border:0; border-radius:9px; padding:11px 12px; background:transparent; color:var(--text); flex:1; }
+    button[aria-pressed="true"] { background:var(--soft); color:var(--accent); font-weight:700; }
+    label { display:block; font-weight:650; margin-bottom:7px; }
+    input { width:100%; padding:13px 14px; border:1px solid var(--border); border-radius:10px; background:var(--card); color:var(--text); font:inherit; }
+    .result { background:var(--soft); border-radius:13px; padding:16px; margin-top:16px; }
+    .result-value { font-size:clamp(1.7rem,6vw,2.3rem); font-weight:800; overflow-wrap:anywhere; margin-top:4px; }
+    .examples { width:100%; border-collapse:collapse; margin-top:8px; }
+    .examples th,.examples td { text-align:left; padding:10px 4px; border-bottom:1px solid var(--border); }
+    .examples th:last-child,.examples td:last-child { text-align:right; }
+    .note { font-size:.86rem; color:var(--muted); }
+    footer { margin:22px 2px; color:var(--muted); font-size:.85rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Euro ↔ Turkish Lira</h1>
+  <p class="intro">A simple guide and live-in-page calculator for understanding EUR/TRY and TRY/EUR.</p>
+
+  <section class="card" aria-label="Exchange rate reference">
+    <div class="pair">
+      <div class="flag" aria-hidden="true">🇪🇺</div>
+      <div>
+        <strong>Euro (EUR)</strong>
+        <div class="rate">€1 ≈ ₺55.21</div>
+        <div class="muted">How many Turkish lira one euro buys</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="pair">
+      <div class="flag" aria-hidden="true">🇹🇷</div>
+      <div>
+        <strong>Turkish lira (TRY)</strong>
+        <div class="rate">₺1 ≈ €0.0181</div>
+        <div class="muted">How many euros one lira is worth</div>
+      </div>
+    </div>
+    <p class="note">Reference rate: approximately 4 October 2026. This is a fixed illustrative rate in this file, not a live market feed. Cash exchange offices, banks and card providers may use different rates and fees.</p>
+  </section>
+
+  <section class="card">
+    <h2 style="margin-top:0">Currency converter</h2>
+    <div class="switch" role="group" aria-label="Conversion direction">
+      <button id="eurToTry" type="button" aria-pressed="true">Euro → Lira</button>
+      <button id="tryToEur" type="button" aria-pressed="false">Lira → Euro</button>
+    </div>
+    <label id="amountLabel" for="amount">Amount in euros (€)</label>
+    <input id="amount" type="number" min="0" step="any" value="100" inputmode="decimal" placeholder="Enter an amount">
+    <div class="result" aria-live="polite">
+      <div class="muted">Approximate converted amount</div>
+      <div class="result-value" id="result">₺5,520.84</div>
+      <div class="muted" id="formula">€100 × 55.2084 = ₺5,520.84</div>
+    </div>
+    <p class="note">No exchange fees are included. The rate is editable in the code if you want to update it.</p>
+  </section>
+
+  <section class="card">
+    <h2 style="margin-top:0">Quick examples</h2>
+    <table class="examples">
+      <thead><tr><th>Amount</th><th>Approximate value</th></tr></thead>
+      <tbody>
+        <tr><td>€10</td><td>₺552.08</td></tr>
+        <tr><td>€50</td><td>₺2,760.42</td></tr>
+        <tr><td>€100</td><td>₺5,520.84</td></tr>
+        <tr><td>₺1,000</td><td>€18.11</td></tr>
+        <tr><td>₺5,000</td><td>€90.57</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2 style="margin-top:0">Which pair should you read?</h2>
+    <p><strong>EUR/TRY</strong> means the price of euros in lira: <strong>€1 ≈ ₺55.21</strong>.</p>
+    <p><strong>TRY/EUR</strong> means the price of lira in euros: <strong>₺1 ≈ €0.0181</strong>.</p>
+    <div class="divider"></div>
+    <strong>Practical tip for Turkey 🇹🇷</strong>
+    <p style="margin-bottom:0">When a card terminal or ATM asks whether to charge you in euros or lira, paying in <strong>TRY (lira)</strong> is often the better choice because the terminal’s euro conversion may be less favourable. Your bank’s own fees and rates still apply.</p>
+  </section>
+  <footer>For estimates only. Always check the rate and fees offered by your bank or exchange office before changing money.</footer>
+</main>
+<script>
+  // Fixed reference rate. Update this number when you check a new EUR/TRY rate.
+  const EUR_TO_TRY = 55.2084;
+  let direction = "eur";
+  const amount = document.getElementById("amount");
+  const result = document.getElementById("result");
+  const formula = document.getElementById("formula");
+  const amountLabel = document.getElementById("amountLabel");
+  const eurButton = document.getElementById("eurToTry");
+  const tryButton = document.getElementById("tryToEur");
+
+  const fmt = (n, digits = 2) => n.toLocaleString("en-CH", {
+    minimumFractionDigits: digits, maximumFractionDigits: digits
+  });
+  function update() {
+    const raw = amount.value.trim();
+    const value = Number(raw);
+    if (raw === "" || !Number.isFinite(value) || value < 0) {
+      result.textContent = "Enter a valid amount";
+      formula.textContent = "";
+      return;
+    }
+    if (direction === "eur") {
+      const converted = value * EUR_TO_TRY;
+      result.textContent = "₺" + fmt(converted);
+      formula.textContent = "€" + fmt(value) + " × " + EUR_TO_TRY + " = ₺" + fmt(converted);
+    } else {
+      const converted = value / EUR_TO_TRY;
+      result.textContent = "€" + fmt(converted);
+      formula.textContent = "₺" + fmt(value) + " ÷ " + EUR_TO_TRY + " = €" + fmt(converted);
+    }
+  }
+  function setDirection(next) {
+    direction = next;
+    const isEuro = direction === "eur";
+    eurButton.setAttribute("aria-pressed", String(isEuro));
+    tryButton.setAttribute("aria-pressed", String(!isEuro));
+    amountLabel.textContent = isEuro ? "Amount in euros (€)" : "Amount in Turkish lira (₺)";
+    amount.value = isEuro ? "100" : "1000";
+    update();
+  }
+  eurButton.addEventListener("click", () => setDirection("eur"));
+  tryButton.addEventListener("click", () => setDirection("try"));
+  amount.addEventListener("input", update);
+  update();
+</script>
+</body>
+</html>

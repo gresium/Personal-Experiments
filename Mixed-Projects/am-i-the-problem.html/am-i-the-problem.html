@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Am I the Problem?</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141418;
+    --card: #1a1a20;
+    --border: #2a2a35;
+    --accent: #c8a96e;
+    --accent2: #7c6fbf;
+    --text: #e8e4da;
+    --muted: #7a7570;
+    --danger: #d4635a;
+    --safe: #5a9e7a;
+  }
+
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(124,111,191,0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(200,169,110,0.06) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 680px;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3rem);
+    line-height: 1.15;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+    max-width: 440px;
+    margin: 0 auto;
+  }
+
+  .divider {
+    width: 40px;
+    height: 1px;
+    background: var(--border);
+    margin: 24px auto;
+  }
+
+  /* QUESTIONS */
+  .question-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 28px 32px;
+    margin-bottom: 16px;
+    opacity: 0;
+    transform: translateY(12px);
+    animation: fadeUp 0.4s ease forwards;
+  }
+
+  .question-block:nth-child(1) { animation-delay: 0.1s; }
+  .question-block:nth-child(2) { animation-delay: 0.15s; }
+  .question-block:nth-child(3) { animation-delay: 0.2s; }
+  .question-block:nth-child(4) { animation-delay: 0.25s; }
+  .question-block:nth-child(5) { animation-delay: 0.3s; }
+  .question-block:nth-child(6) { animation-delay: 0.35s; }
+  .question-block:nth-child(7) { animation-delay: 0.4s; }
+  .question-block:nth-child(8) { animation-delay: 0.45s; }
+
+  .q-number {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--accent2);
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .q-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem;
+    line-height: 1.5;
+    margin-bottom: 20px;
+    font-style: italic;
+    color: var(--text);
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .option-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 10px 16px;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+    letter-spacing: 0.03em;
+    line-height: 1.5;
+  }
+
+  .option-btn:hover {
+    border-color: var(--accent);
+    color: var(--text);
+    background: rgba(200,169,110,0.05);
+  }
+
+  .option-btn.selected-them {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: rgba(212,99,90,0.08);
+  }
+
+  .option-btn.selected-me {
+    border-color: var(--safe);
+    color: var(--safe);
+    background: rgba(90,158,122,0.08);
+  }
+
+  .option-btn.selected-both {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(200,169,110,0.08);
+  }
+
+  /* PROGRESS */
+  .progress-wrap {
+    margin-bottom: 36px;
+    animation: fadeDown 0.6s 0.3s ease both;
+  }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+  }
+
+  .progress-bar {
+    height: 2px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    transition: width 0.4s ease;
+    border-radius: 2px;
+  }
+
+  /* RESULT */
+  .result-section {
+    display: none;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .result-section.visible { display: block; }
+
+  .result-card {
+    border-radius: 4px;
+    padding: 40px 36px;
+    text-align: center;
+    margin-bottom: 24px;
+    border: 1px solid;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .result-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.04;
+    background: radial-gradient(circle at center, currentColor, transparent 70%);
+  }
+
+  .result-card.mostly-them { border-color: var(--danger); color: var(--danger); }
+  .result-card.mostly-me  { border-color: var(--safe);   color: var(--safe);   }
+  .result-card.mixed      { border-color: var(--accent);  color: var(--accent); }
+
+  .result-icon { font-size: 2.5rem; margin-bottom: 16px; }
+
+  .result-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .result-subtitle {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.8;
+    margin-bottom: 20px;
+  }
+
+  .result-body {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--text);
+    text-align: left;
+    opacity: 0.9;
+  }
+
+  /* BREAKDOWN */
+  .breakdown {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 28px 32px;
+    margin-bottom: 16px;
+  }
+
+  .breakdown h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .bar-label {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    width: 100px;
+    flex-shrink: 0;
+  }
+
+  .bar-track {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s ease;
+  }
+
+  .bar-fill.them { background: var(--danger); }
+  .bar-fill.me   { background: var(--safe); }
+  .bar-fill.both { background: var(--accent); }
+
+  .bar-pct {
+    font-size: 10px;
+    color: var(--muted);
+    width: 32px;
+    text-align: right;
+  }
+
+  /* INSIGHTS */
+  .insights {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+  }
+
+  .insights h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    margin-bottom: 20px;
+  }
+
+  .insight-item {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .insight-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+  .insight-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
+
+  .insight-text {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--muted);
+  }
+
+  /* RESET */
+  .reset-btn {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 14px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+  }
+
+  .reset-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .submit-btn {
+    display: block;
+    width: 100%;
+    background: var(--accent);
+    border: none;
+    color: #0d0d0f;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 16px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+    margin-bottom: 16px;
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  .submit-btn.ready {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .submit-btn.ready:hover {
+    background: #d9bc80;
+  }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <p class="eyebrow">A Honest Self-Audit</p>
+    <h1>Am I the Problem,<br>or am I surrounded<br>by <em>idiots?</em></h1>
+    <div class="divider"></div>
+    <p class="subtitle">Answer honestly. No one's watching. This is a mirror, not a judgment.</p>
+  </header>
+
+  <div id="quiz-section">
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span>YOUR PROGRESS</span>
+        <span id="progress-text">0 / 8</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+
+    <div id="questions"></div>
+
+    <button class="submit-btn" id="submit-btn" onclick="showResult()">SEE MY RESULTS →</button>
+  </div>
+
+  <div class="result-section" id="result-section">
+    <div class="result-card" id="result-card">
+      <div class="result-icon" id="result-icon"></div>
+      <div class="result-title" id="result-title"></div>
+      <div class="result-subtitle" id="result-subtitle"></div>
+      <div class="result-body" id="result-body"></div>
+    </div>
+
+    <div class="breakdown">
+      <h3>Your Pattern Breakdown</h3>
+      <div class="bar-row">
+        <div class="bar-label">It's them</div>
+        <div class="bar-track"><div class="bar-fill them" id="bar-them" style="width:0%"></div></div>
+        <div class="bar-pct" id="pct-them">0%</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">It's me</div>
+        <div class="bar-track"><div class="bar-fill me" id="bar-me" style="width:0%"></div></div>
+        <div class="bar-pct" id="pct-me">0%</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">It's both / context</div>
+        <div class="bar-track"><div class="bar-fill both" id="bar-both" style="width:0%"></div></div>
+        <div class="bar-pct" id="pct-both">0%</div>
+      </div>
+    </div>
+
+    <div class="insights" id="insights-box">
+      <h3>What to actually do with this</h3>
+      <div id="insights-list"></div>
+    </div>
+
+    <button class="reset-btn" onclick="reset()">↺ &nbsp; START OVER</button>
+  </div>
+</div>
+
+<script>
+const questions = [
+  {
+    text: "When something goes wrong in a relationship or group, where does your mind go first?",
+    options: [
+      { label: "I look at what I could have done differently", score: "me" },
+      { label: "I think about what the other person did wrong", score: "them" },
+      { label: "I try to understand both sides before deciding", score: "both" },
+      { label: "I feel wronged immediately, then slowly reconsider", score: "them" },
+    ]
+  },
+  {
+    text: "How many people in your life do you currently consider difficult, toxic, or incompetent?",
+    options: [
+      { label: "Just one or two specific people", score: "both" },
+      { label: "Most people I spend time around", score: "them" },
+      { label: "Almost everyone, honestly", score: "me" },
+      { label: "Not many — most people are fine", score: "both" },
+    ]
+  },
+  {
+    text: "When someone gives you critical feedback, what's your gut reaction?",
+    options: [
+      { label: "Defensive — they don't understand the full picture", score: "them" },
+      { label: "Curious — I want to understand what they mean", score: "me" },
+      { label: "It depends heavily on who's giving the feedback", score: "both" },
+      { label: "Hurt, but I usually come around later", score: "both" },
+    ]
+  },
+  {
+    text: "Do the same types of conflicts follow you across different jobs, friendships, or relationships?",
+    options: [
+      { label: "Yes, and I've noticed that pattern myself", score: "me" },
+      { label: "Yes, but the situations are always different", score: "both" },
+      { label: "No — problems show up with specific people only", score: "both" },
+      { label: "Yes, and it's because I attract bad people", score: "them" },
+    ]
+  },
+  {
+    text: "When you vent about someone, what do your close friends usually say?",
+    options: [
+      { label: "They validate me and agree the person is wrong", score: "them" },
+      { label: "They gently push back or ask what I could do differently", score: "me" },
+      { label: "They try to see both sides", score: "both" },
+      { label: "I don't really vent — I process things internally", score: "both" },
+    ]
+  },
+  {
+    text: "How do you feel about the idea that you might be contributing to the problem?",
+    options: [
+      { label: "Open to it — I genuinely want to know", score: "me" },
+      { label: "Resistant — I've already considered it and ruled it out", score: "them" },
+      { label: "Anxious — I worry too much that it's always my fault", score: "me" },
+      { label: "Somewhere in the middle — sometimes yes, sometimes no", score: "both" },
+    ]
+  },
+  {
+    text: "Think about the last big conflict you had. Did the other person ever express how they felt?",
+    options: [
+      { label: "Yes, and I took it seriously", score: "me" },
+      { label: "Yes, but their feelings seemed exaggerated or unfair", score: "them" },
+      { label: "No, they shut down or refused to talk", score: "both" },
+      { label: "They did, but I was too overwhelmed to listen well", score: "me" },
+    ]
+  },
+  {
+    text: "Honestly — what do you think the answer is?",
+    options: [
+      { label: "I think they're genuinely difficult people", score: "them" },
+      { label: "I suspect I might be the common thread", score: "me" },
+      { label: "It's genuinely complicated — probably both", score: "both" },
+      { label: "I don't know, which is why I'm here", score: "both" },
+    ]
+  }
+];
+
+let answers = new Array(questions.length).fill(null);
+
+function renderQuestions() {
+  const container = document.getElementById('questions');
+  questions.forEach((q, i) => {
+    const block = document.createElement('div');
+    block.className = 'question-block';
+    block.style.animationDelay = (0.08 * i) + 's';
+    block.innerHTML = `
+      <span class="q-number">QUESTION ${String(i+1).padStart(2,'0')}</span>
+      <div class="q-text">${q.text}</div>
+      <div class="options" id="opts-${i}">
+        ${q.options.map((o, j) => `
+          <button class="option-btn" onclick="select(${i}, ${j}, '${o.score}', this)">${o.label}</button>
+        `).join('')}
+      </div>
+    `;
+    container.appendChild(block);
+  });
+}
+
+function select(qIdx, optIdx, score, btn) {
+  answers[qIdx] = score;
+  const opts = document.querySelectorAll(`#opts-${qIdx} .option-btn`);
+  opts.forEach(b => { b.className = 'option-btn'; });
+  btn.classList.add('selected-' + (score === 'them' ? 'them' : score === 'me' ? 'me' : 'both'));
+  updateProgress();
+}
+
+function updateProgress() {
+  const answered = answers.filter(a => a !== null).length;
+  const pct = (answered / questions.length) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = `${answered} / ${questions.length}`;
+  const btn = document.getElementById('submit-btn');
+  if (answered === questions.length) btn.classList.add('ready');
+  else btn.classList.remove('ready');
+}
+
+function showResult() {
+  const counts = { them: 0, me: 0, both: 0 };
+  answers.forEach(a => { if (a) counts[a]++; });
+  const total = questions.length;
+
+  const pctThem = Math.round((counts.them / total) * 100);
+  const pctMe   = Math.round((counts.me   / total) * 100);
+  const pctBoth = Math.round((counts.both / total) * 100);
+
+  setTimeout(() => {
+    document.getElementById('bar-them').style.width = pctThem + '%';
+    document.getElementById('bar-me').style.width   = pctMe   + '%';
+    document.getElementById('bar-both').style.width = pctBoth + '%';
+  }, 200);
+
+  document.getElementById('pct-them').textContent = pctThem + '%';
+  document.getElementById('pct-me').textContent   = pctMe   + '%';
+  document.getElementById('pct-both').textContent = pctBoth + '%';
+
+  const card = document.getElementById('result-card');
+  const icon = document.getElementById('result-icon');
+  const title = document.getElementById('result-title');
+  const sub = document.getElementById('result-subtitle');
+  const body = document.getElementById('result-body');
+  const insightsList = document.getElementById('insights-list');
+
+  let resultType, insights;
+
+  if (counts.them >= 5) {
+    resultType = 'mostly-them';
+    icon.textContent = '';
+    title.textContent = 'Your environment may genuinely be the problem.';
+    sub.textContent = 'But stay curious about your role in it.';
+    body.innerHTML = `Your answers suggest the difficulty is mostly coming from outside you. Some environments really are toxic, some people really are difficult — and recognizing that isn't denial, it's clarity.<br><br>The key question now: <strong>what do you do about it?</strong> Naming the problem is step one. Deciding how to respond is step two.`;
+    insights = [
+      { color: '#d4635a', text: "Look for patterns: are these people all connected (same job, same social circle)? If yes, leaving that environment may be the most powerful thing you can do." },
+      { color: '#c8a96e', text: "Even in bad environments, it's worth asking: am I staying longer than I should? Sometimes tolerating difficult people is itself a choice we're making." },
+      { color: '#7c6fbf', text: "Talk to someone outside the situation — a friend, therapist, or mentor who will tell you the truth, not just agree with you." },
+    ];
+  } else if (counts.me >= 5) {
+    resultType = 'mostly-me';
+    icon.textContent = '';
+    title.textContent = 'The common thread might be you.';
+    sub.textContent = 'This is actually the best possible news.';
+    body.innerHTML = `Your answers point inward. That sounds harsh, but it's genuinely the most empowering outcome — because <strong>you can change yourself.</strong> You can't change other people.<br><br>This doesn't mean you're a bad person. It might mean there are blind spots, habits, or patterns worth examining.`;
+    insights = [
+      { color: '#5a9e7a', text: "The fact that you're asking this question at all means you have more self-awareness than most. That's your biggest asset — don't waste it." },
+      { color: '#c8a96e', text: "Look for the repeating pattern: what does every difficult situation have in common? That intersection is where the work is." },
+      { color: '#7c6fbf', text: "Consider therapy or coaching — not because something is 'wrong' with you, but because having a neutral party reflect your patterns back to you is incredibly useful." },
+    ];
+  } else {
+    resultType = 'mixed';
+    icon.textContent = '';
+    title.textContent = 'It\'s genuinely both — and that\'s the honest answer.';
+    sub.textContent = 'Reality is usually more complicated than one side.';
+    body.innerHTML = `Your answers don't clearly point in one direction — which is probably the most accurate place to be. Most real situations involve difficult people <em>and</em> our own contributions to the mess.<br><br>The work isn't figuring out who's "right." It's figuring out <strong>what you can actually control.</strong>`;
+    insights = [
+      { color: '#c8a96e', text: "Separate the two questions: 'Is this person difficult?' and 'How am I responding to them?' Both can be true, and both deserve attention." },
+      { color: '#5a9e7a', text: "Focus your energy on your own behavior — not because you're fully at fault, but because it's the only lever you actually have." },
+      { color: '#d4635a', text: "If you find yourself cycling through the same frustrations repeatedly, that's a signal to get an outside perspective — someone who won't just take your side." },
+    ];
+  }
+
+  card.className = 'result-card ' + resultType;
+  insightsList.innerHTML = insights.map(ins => `
+    <div class="insight-item">
+      <div class="insight-dot" style="background:${ins.color}"></div>
+      <div class="insight-text">${ins.text}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('quiz-section').style.display = 'none';
+  const rs = document.getElementById('result-section');
+  rs.classList.add('visible');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function reset() {
+  answers = new Array(questions.length).fill(null);
+  document.getElementById('questions').innerHTML = '';
+  renderQuestions();
+  document.getElementById('quiz-section').style.display = 'block';
+  document.getElementById('result-section').classList.remove('visible');
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('progress-text').textContent = '0 / 8';
+  document.getElementById('submit-btn').classList.remove('ready');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+renderQuestions();
+</script>
+</body>
+</html>
